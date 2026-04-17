@@ -36,6 +36,11 @@ SERVICE_ACCOUNT_PATH = _CLAUDE_SETUP_ROOT / "mcp-google-workspace" / "service-ac
 
 DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive"]
 
+# The "5 invoicing" folder lives in johannes.fritz@sgept.org's Drive.
+# The service account has domain-wide delegation; impersonate the owner
+# (mirrors how mcp-google-workspace already impersonates for Gmail/Calendar).
+DRIVE_IMPERSONATE_SUBJECT = "johannes.fritz@sgept.org"
+
 
 def sync_to_gdrive(
     invoice_number,
@@ -125,7 +130,7 @@ def _sync_linux(docx_path, pdf_path, inv_num, abbrev, is_nipo):
 
     creds = service_account.Credentials.from_service_account_file(
         str(SERVICE_ACCOUNT_PATH), scopes=DRIVE_SCOPES,
-    )
+    ).with_subject(DRIVE_IMPERSONATE_SUBJECT)
     drive = build('drive', 'v3', credentials=creds, cache_discovery=False)
 
     # Find a folder under the root whose name ends with ' {inv_num}'.
