@@ -1,0 +1,19 @@
+{
+  "bank": {
+    "name": "St.Galler Kantonalbank AG",
+    "address": "St. Leonhardstrasse 25",
+    "city": "9001 St. Gallen",
+    "bic_swift": "KBSGCH22",
+    "clearing_no": "00781"
+  },
+  "account_holder": {
+    "name": "St.Gallen Endowment for Prosperity through Trade",
+    "address": "Guisanstrasse 36",
+    "city": "9010 St. Gallen"
+  },
+  "accounts": {
+    "CHF": { "iban": "CH80 0078 1624 8968 1200 0" },
+    "EUR": { "iban": "CH53 0078 1624 8968 1200 1" },
+    "USD": { "iban": "CH26 0078 1624 8968 1200 2" }
+  }
+}
