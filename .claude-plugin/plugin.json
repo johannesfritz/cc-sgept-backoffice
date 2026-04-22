@@ -1,0 +1,18 @@
+{
+  "name": "cc-sgept-backoffice",
+  "version": "0.1.0",
+  "description": "SGEPT back-office automation: invoice generation (sequential numbering, 30-day due date, NIPO subscription periods), templates, and governance rules. Feeds jf-ceo/sgept-backoffice with scripts, templates, and config.",
+  "author": {
+    "name": "SGEPT"
+  },
+  "repository": "https://github.com/johannesfritz/cc-sgept-backoffice",
+  "license": "UNLICENSED",
+  "keywords": [
+    "sgept",
+    "claude-code",
+    "backoffice",
+    "invoicing"
+  ],
+  "agents": "./agents/",
+  "commands": "./commands/"
+}

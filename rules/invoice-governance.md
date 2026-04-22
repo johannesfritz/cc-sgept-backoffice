@@ -1,3 +1,11 @@
+---
+paths:
+  - sgept-backoffice/invoicing/**
+  - sgept-backoffice/templates/invoices/**
+  - .claude/commands/invoice*.md
+  - .claude/scripts/generate-invoice.py
+---
+
 # Invoice Governance
 
 Invariants every invoice must satisfy. Violations have produced broken invoices in prior runs — each rule here earns its place.
