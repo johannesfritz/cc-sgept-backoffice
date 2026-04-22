@@ -44,7 +44,7 @@ Collect the following from the user using AskUserQuestion (only for what you can
 After collecting all information, normalize the invoice number (strip any hyphens/separators so it is exactly 5 digits), then run:
 
 ```bash
-cd /Users/johannesfritz/Documents/GitHub/jf-private/jf-ceo/sgept-backoffice/scripts
+cd "$HOME/Documents/GitHub/jf-private/jf-ceo/sgept-backoffice/scripts"
 python3 -c "
 import importlib.util
 spec = importlib.util.spec_from_file_location('gi', 'generate-invoice.py')

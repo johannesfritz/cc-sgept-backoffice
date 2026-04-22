@@ -23,7 +23,7 @@ Collect via AskUserQuestion:
 ## Process
 
 ```bash
-cd /Users/johannesfritz/Documents/GitHub/jf-private/jf-ceo/sgept-backoffice/scripts
+cd "$HOME/Documents/GitHub/jf-private/jf-ceo/sgept-backoffice/scripts"
 python3 << 'PYEOF'
 import importlib.util
 spec = importlib.util.spec_from_file_location('gi', 'generate-invoice.py')

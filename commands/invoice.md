@@ -70,7 +70,7 @@ Determine EU membership from the recipient's country automatically.
 ## Step 3: Generate the Invoice
 
 ```bash
-cd /Users/johannesfritz/Documents/GitHub/jf-private/jf-ceo/sgept-backoffice/scripts
+cd "$HOME/Documents/GitHub/jf-private/jf-ceo/sgept-backoffice/scripts"
 python3 << 'PYEOF'
 import sys; sys.path.insert(0, '.')
 import importlib
