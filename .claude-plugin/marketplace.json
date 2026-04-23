@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "johannesfritz-cc-sgept-backoffice",
+  "description": "SGEPT back-office automation: invoice generation (sequential numbering, 30-day due date, NIPO subscription periods), templates, and governance rules.",
+  "owner": {
+    "name": "SGEPT"
+  },
+  "plugins": [
+    {
+      "name": "cc-sgept-backoffice",
+      "description": "SGEPT back-office automation: invoice generation (sequential numbering, 30-day due date, NIPO subscription periods), templates, and governance rules. Feeds jf-ceo/sgept-backoffice with scripts, templates, and config.",
+      "category": "productivity",
+      "source": ".",
+      "homepage": "https://github.com/johannesfritz/cc-sgept-backoffice"
+    }
+  ]
+}
