@@ -1,0 +1,10 @@
+# Back-office automation runs against the canonical jf-ceo/sgept-backoffice/
+# directory tree (invoicing/, scripts/, templates/, invoicing/config/).
+# These files describe the canonical-layout contract and are not portable
+# without that tree on disk.
+README.md
+.claude-plugin/marketplace.json
+.claude-plugin/plugin.json
+prompts/invoice-handler.md
+rules/invoice-governance.md
+scripts/generate-invoice.py

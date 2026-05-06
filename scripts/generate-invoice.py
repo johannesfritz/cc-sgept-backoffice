@@ -26,13 +26,16 @@ OUTPUT_DIR = JF_PRIVATE_ROOT / "jf-ceo" / "sgept-backoffice" / "invoicing"
 
 # Google Drive shipping destination.
 # https://drive.google.com/drive/u/0/folders/19bPRghIb2L3cdxZzIattO65uM5En6dHM
-# macOS: direct filesystem copy via Drive File Stream mount.
+# macOS: direct filesystem copy via Drive File Stream mount (canonical jf-private
+#        layout uses CloudStorage/GoogleDrive-johannes.fritz@sgept.org/).
 # Linux: Google Drive API via gdrive_upload.py (Phase 3).
+# Override via SGEPT_GDRIVE_INVOICING env var on different machines.
 GDRIVE_FOLDER_ID = "19bPRghIb2L3cdxZzIattO65uM5En6dHM"
-GDRIVE_INVOICING_MAC = Path(
-    "/Users/johannesfritz/Library/CloudStorage/GoogleDrive-johannes.fritz@sgept.org/"
+_GDRIVE_DEFAULT = (
+    f"{Path.home()}/Library/CloudStorage/GoogleDrive-johannes.fritz@sgept.org/"
     "Meine Ablage/SGEPT ORG/SGEPT admin/dbx/SGEPT/0 admin/5 invoicing"
 )
+GDRIVE_INVOICING_MAC = Path(os.environ.get("SGEPT_GDRIVE_INVOICING", _GDRIVE_DEFAULT))
 # Back-compat alias for any external callers.
 GDRIVE_INVOICING = GDRIVE_INVOICING_MAC
 

@@ -2,6 +2,17 @@
 
 SGEPT back-office capabilities: invoice generation (NIPO + standard), templates, and the agent/prompt surface used by both the CEO's local slash commands and the Chief-of-Staff email loop on Metis.
 
+## How this stacks
+
+This repo is the **back-office automation engine** for SGEPT invoicing. Dependencies:
+
+- **(required)** Python + python-docx + Pillow + (macOS: docx2pdf + Word, Linux: libreoffice) for invoice rendering
+- **(required)** Google Drive access — either the macOS Drive File Stream mount (canonical jf-private layout via SGEPT_GDRIVE_INVOICING env var, defaults to `~/Library/CloudStorage/...`) OR the Google Drive API via `mcp-google-workspace/service-account.json` on Linux
+- **(required)** SGEPT bank account config + NIPO Stripe link config (in `config/` directory)
+- **(optional companion)** cc-os — provides session-tracking, `/handoff`. Invoice flows work without cc-os.
+
+The repo IS structurally tied to the canonical jf-private layout: invoice folders land at `jf-ceo/sgept-backoffice/invoicing/YYMMDD [Descriptor] {NUMBER}/`, the sequential-numbering rule scans that path, and the symlink targets in /jf-ceo/sgept-backoffice/ are the canonical work directory. Standalone consumers would need to provide an equivalent target tree and override `SGEPT_GDRIVE_INVOICING`.
+
 ## Contents
 
 | Dir | Purpose |

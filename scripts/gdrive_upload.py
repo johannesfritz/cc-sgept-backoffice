@@ -14,6 +14,7 @@ Overwrite-in-place semantics on both backends:
 
 from __future__ import annotations
 
+import os
 import shutil
 import sys
 from datetime import datetime
@@ -22,11 +23,14 @@ from pathlib import Path
 
 GDRIVE_FOLDER_ID_ROOT = "19bPRghIb2L3cdxZzIattO65uM5En6dHM"
 
-# macOS mount of Drive File Stream
-GDRIVE_INVOICING_MAC = Path(
-    "/Users/johannesfritz/Library/CloudStorage/GoogleDrive-johannes.fritz@sgept.org/"
+# macOS mount of Drive File Stream — canonical jf-private layout uses the
+# CloudStorage/GoogleDrive-johannes.fritz@sgept.org/ Meine Ablage path.
+# Override via SGEPT_GDRIVE_INVOICING env var on different machines.
+_GDRIVE_DEFAULT = (
+    f"{Path.home()}/Library/CloudStorage/GoogleDrive-johannes.fritz@sgept.org/"
     "Meine Ablage/SGEPT ORG/SGEPT admin/dbx/SGEPT/0 admin/5 invoicing"
 )
+GDRIVE_INVOICING_MAC = Path(os.environ.get("SGEPT_GDRIVE_INVOICING", _GDRIVE_DEFAULT))
 
 # Linux: expect the mcp-google-workspace service account credential.
 _SCRIPT_DIR = Path(__file__).resolve().parent
