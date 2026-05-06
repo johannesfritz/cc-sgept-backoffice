@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # cc-sgept-backoffice — Claude Code install script (standalone)
 # Symlinks commands + agents + prompts + rules into .claude/.
-# NOTE: invoice generation also requires the canonical jf-ceo/sgept-backoffice/
+# NOTE: invoice generation also requires the canonical jf-private layout's jf-ceo/sgept-backoffice/
 # work directory to exist on disk (or override paths via SGEPT_GDRIVE_INVOICING
 # env var + caller-supplied OUTPUT_DIR).
 
