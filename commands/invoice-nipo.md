@@ -4,40 +4,57 @@ description: Generate a NIPO subscription invoice (regular, academic library, or
 
 Generate a NIPO (New Industrial Policy Observatory) subscription invoice.
 
+## HEADLESS MODE CONTRACT (when `$ARGUMENTS` matches `^JFM-\d+$`)
+
+If `$ARGUMENTS` is a JFM identifier, you are running as a detached workflow against a Linear-backed durable record. Do NOT use `AskUserQuestion`. Follow this contract:
+
+1. Fetch the JFM: `python3 /home/deploy/jf-private/jf-metis/scripts/linear-api.py get-issue $ARGUMENTS`
+2. Parse the description for the invoice spec block. The spec is a YAML or JSON block containing `recipient`, `tier`, `amount`, `currency`, `invoice_number`, `subscription_period`, `abbrev`. The `thread_history` (all prior CEO ↔ Metis messages on this Gmail thread) is pinned as the most recent `cos-meta: thread-history` comment on the JFM.
+3. Run extraction + per-tier defaults (see "Required Information" below) to fill any gaps from `thread_history`. If after extraction any required field is still missing, send a SINGLE confirmation reply that (a) summarises everything parsed, (b) lists remaining ambiguities, (c) ends with *"Reply 'go' to generate as shown, or correct any field."* Then transition the JFM to `cos:awaiting-input` and exit.
+4. If the spec is complete, generate the invoice (Generation Process below), verify (Verification Step below), write the manifest to `/home/deploy/metis-jobs/deliverables/$ARGUMENTS/`, transition JFM to `cos:awaiting-approval`, and reply in-thread with the draft PDF attached using `notify-reply.py` and the `cos-meta: thread=<id> msgid=<id>` markers on the JFM.
+5. If the CEO's latest reply (in `thread_history` last entry) starts with `approve`, `approved`, `send it`, `ship it`, `finalize`, or `looks good`, finalise: re-verify, run `gdrive_upload.py`, git commit + push, transition JFM to `cos:finalised`, and send the confirmation email per `invoice-handler.md` STEP F.
+
+When `$ARGUMENTS` is empty (local CLI use), fall through to the interactive flow below using `AskUserQuestion`.
+
 ## Invariants (MUST follow — bugs caught in prior runs)
 
 These rules are MANDATORY. Prior runs produced broken invoices when any were violated.
 
 1. **Invoice numbers have NO hyphen.** The format is a single 5-digit string: `26015`, `26007`, `26001`. Never `26-015`, `26-0015`, `26/015`. If the user types any separator, normalize to the raw 5 digits before passing to the script.
-2. **`subscription_period` argument uses " - " as separator** (space-hyphen-space): `"May 2026 - April 2027"`. Use full `"Month YYYY"` on both sides — never just the month. The body text reads literally "...the NIPO dataset for {period_start} will be delivered ... up until and including the {period_end} deliverable" so period_start MUST be the first month of the subscription and period_end MUST be the last.
+2. **`subscription_period` argument uses " - " as separator** (space-hyphen-space): `"May 2026 - April 2027"`. Use full `"Month YYYY"` on both sides — never just the month. The body text reads literally "...the NIPO dataset for {period_start} will be delivered ... up until and including the {period_end} deliverable" so period_start MUST be the first month of the subscription and period_end MUST be the last. For one-off deliverables (academic_student tier default), `period_start == period_end` is correct and renders grammatically (e.g. *"the NIPO dataset for May 2026 will be delivered ... up until and including the May 2026 deliverable"*).
 3. **Invoice date is the actual date you are sending the invoice**, not a future or backdated value unless the user explicitly says so. Default to today.
 4. **After generation, run the verification step (below).** The script cannot always detect if a template has been edited; verification catches regressions the script cannot.
 
 ## NIPO Tiers
 
-| Tier | Default Amount | Payment Options |
-|------|---------------|-----------------|
-| **Regular** | CHF 7,000 | Bank transfer only |
-| **Academic Library** | CHF 1,250 | Bank transfer + Stripe |
-| **Academic/Student** | CHF 500 | Bank transfer + Stripe |
+| Tier | Default Amount | Payment Options | Default Period |
+|------|---------------|-----------------|----------------|
+| **Regular** (`regular`) | CHF 7,000 | Bank transfer only | 12 months from invoice date |
+| **Academic Library** (`academic_library`) | CHF 1,250 | Bank transfer + Stripe | 12 months from invoice date |
+| **Academic/Student** (`academic_student`) | CHF 500 | Bank transfer + Stripe | Invoice month only — one-off deliverable (`period_start == period_end`) |
+
+The skill MUST apply the default period for the chosen tier unless the user explicitly overrides with a date range. Tier can be inferred from amount when explicit: 500 ⇒ `academic_student`; 1250 ⇒ `academic_library`; 7000 ⇒ `regular`.
 
 ## Required Information
 
-Collect the following from the user using AskUserQuestion (only for what you cannot infer from their request):
+**Extraction-first posture.** Before asking anything, scan the user's request (or in headless mode, the `thread_history`) and extract everything you can. Use the extractions below as proposals and only ask about genuine ambiguities — in a single confirmation message, not field-by-field.
 
-1. **Invoice Number** — 5 digits, no hyphen (e.g., `26015`)
-2. **Invoice Date** — default to today; confirm with user if unclear
-3. **NIPO Tier** — regular, academic_library, or academic_student
-4. **Currency** — CHF, EUR, or USD
-5. **Amount** — default to tier default; user may override
-6. **Recipient Details:**
-   - Institution/Organization name
-   - Contact person name (full name)
-   - Street address
-   - City/postal code
-   - Country
-7. **Subscription Period** — format `"Month YYYY - Month YYYY"` (e.g., `"May 2026 - April 2027"`)
-8. **Abbreviation** — short identifier for the Drive folder name (e.g. `IADB`, `TENEO`). Ask the user — do NOT auto-derive.
+| Field | Extraction rule | Default |
+|---|---|---|
+| **Invoice Number** | 5 digits, no hyphen | Required from user; no default |
+| **Invoice Date** | Parse explicit date | Today |
+| **NIPO Tier** | Infer from amount (500/1250/7000); otherwise ask | Required from user |
+| **Currency** | Look for CHF/EUR/USD or symbols €/$ | CHF |
+| **Amount** | Parse explicit amount | Tier default |
+| **Recipient Institution** | Take explicit org name from request | Required from user |
+| **Contact Name** | Parse "Prof./Dr./Mr./Ms./Mrs." + full name; or any named addressee | Required from user |
+| **Street** | Address line containing street name + number | Required from user |
+| **City/Postal Code** | Numeric postcode + city name | Required from user |
+| **Country** | Explicit; otherwise infer from postcode (DE = 5 digits, CH = 4 digits, US = 5 digits + state code) | Inferred from postcode |
+| **Subscription Period** | Parse explicit range; otherwise apply tier default | See tier table above |
+| **Abbreviation** | First all-caps token (≥2 chars) in institution name; fall back to first 4 letters of first word | Auto-derived — propose, do NOT block on it |
+
+In headless mode, send the user a single confirmation message of what you parsed and what you'll generate; finalise only if they say "go" or correct any field. In local interactive mode, use `AskUserQuestion` only for fields that remain genuinely ambiguous after extraction.
 
 ## Generation Process
 
