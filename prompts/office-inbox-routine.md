@@ -98,7 +98,9 @@ thread give context.
 
 ## STEP 4 — Dedup (MANDATORY before every create)
 
-For every non-SPAM, non-INVOICE thread, search Linear JF team first via Bash:
+For every non-SPAM, non-INVOICE thread, search Linear JF team first via Bash.
+Search by the **office-email** label specifically (more selective than
+`source: cos-email`, which also contains johannes-inbox items):
 
 ```bash
 python3 /home/deploy/jf-private/jf-metis/scripts/linear-api.py list-issues \
@@ -162,7 +164,7 @@ Field rules:
 | `--team` | `JF` |
 | `--title` | Physical-verb test from `linear-task-protocol.md`. Examples: "Review Stripe receipt for 2026-05-12 charge and file under operations", "Reply to Acme Corp inquiry sent to office@", "Investigate bounced payment notice from PostFinance 2026-05-14", "Decide whether to renew Hetzner Iran-monitor server (renewal 2026-06-01)". |
 | `--state` | `Triage` |
-| `--labels` | Always start with `source: office-email`. Append per class: VENDOR_NOTICE → `vendor`; ADMIN → `admin, priority-high`; BANKING → `banking`; CLIENT_OR_PARTNER → `client, priority-high`; AMBIGUOUS → `needs-info`. |
+| `--labels` | Always include BOTH `source: cos-email` and `source: office-email`. The `source: cos-email` label is what surfaces the issue in the 06:00 CEST morning digest (`cos-build-digest.py` queries that label); the `source: office-email` label distinguishes inbox-source items so the CEO can spot them in the digest and in Linear. Append per class: VENDOR_NOTICE → `vendor`; ADMIN → `admin, priority-high`; BANKING → `banking`; CLIENT_OR_PARTNER → `client, priority-high`; AMBIGUOUS → `needs-info`. |
 | `--estimate` | 2 (default). Raise to 3-5 only if the email clearly implies a larger task. |
 
 Description template (cold-start format, mirrors the johannes inbox routine):
