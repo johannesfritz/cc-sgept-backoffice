@@ -30,7 +30,7 @@ Collect consultant invoices for the specified month and prepare them for account
 
 ### Phase 4: Compile for Accounting
 11. Create/update checklist at `sgept-backoffice/bills/consultants/YYMM/checklist.md` with status of all 20 consultants.
-12. **Draft** email to `corinne.peterhans@kropftreuhand.ch` via **office@sgept.org** in German — subject: `Consultant Rechnungen [German month] [Year]`. Follow the template in protocol Step 7. Use `send_threaded_reply.py --account office --draft` with `"attachments"` array to attach all downloaded PDFs (including late invoices from prior months). **IMPORTANT:** The script treats the body as HTML when attachments are present — format the body with `<p>`, `<ol>`, `<li>`, `<br>` tags (not plain text). The Peterhans email is the **only** email that requires CEO review before sending.
+12. **Send** email to `corinne.peterhans@kropftreuhand.ch` with **CC `johannes.fritz@sgept.org`** via **office@sgept.org** in German — subject: `Consultant Rechnungen [German month] [Year]`. Follow the template in protocol Step 7. Use `send_threaded_reply.py --account office` (set `"cc": "johannes.fritz@sgept.org"` in the send-list JSON; include `"attachments": [...]` with all downloaded PDFs, including late invoices from prior months). **IMPORTANT:** The script treats the body as HTML when attachments are present — format the body with `<p>`, `<ol>`, `<li>`, `<br>` tags (not plain text). Auto-send (no `--draft`) — the CC to johannes ensures CEO visibility; sentinel file `forwarded-on-DD.txt` in the month folder prevents double-send on re-run.
 13. List received and missing invoices in the email body.
 
 ### Phase 5: Follow Up
@@ -42,13 +42,17 @@ Collect consultant invoices for the specified month and prepare them for account
 - **Naming:** `Last name, First name - YYMM.pdf` — no exceptions.
 - **Month assignment:** Based on invoice content, not email date.
 - **Thank-you replies:** Send directly (not draft). These are routine.
-- **Peterhans email:** Draft only (with attachments). CEO reviews before sending.
+- **Peterhans email:** Auto-sent with CC `johannes.fritz@sgept.org`. Sentinel file `bills/consultants/YYMM/forwarded-on-DD.txt` is written after send; on re-run, check for this sentinel before sending again to avoid duplicates.
 - **Reminders:** Send directly.
+
+## Idempotency
+
+The cron variant of this routine (`jf-metis/scripts/run-invoice-routine-cron.sh`) writes sentinels in the month folder after each authoritative send: `forwarded-on-DD.txt` (the 5th-of-month send), `supplementary-on-DD.txt` (late-arrival forwards), `reminder-sent.txt` (7th-of-month reminders), and `escalation-sent.txt` (14th-of-month escalation). Always check these before sending — they are the source of truth for "this has already been done this month." The interactive slash command should respect the same sentinels.
 
 ## Output Summary
 When done, report:
 1. How many invoices collected (X of 20)
 2. Which consultants are still missing
 3. Thank-you replies sent (count)
-4. Peterhans draft ready for review (with attachments) — CEO sends manually
+4. Peterhans email sent to `corinne.peterhans@kropftreuhand.ch` (cc johannes), with sentinel written
 5. Reminders sent for missing invoices (count)
