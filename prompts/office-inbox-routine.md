@@ -12,7 +12,16 @@ CEO attention into Linear issues on the JF team.
 
 **Input.** A JSON array of messages at `{{MSG_FILE}}`. Each entry has:
 `gmail_id, thread_id, direction (inbox|sent), from, from_addr, to, cc,
-subject, date, snippet, body_text, in_reply_to, references, truncated`.
+subject, date, snippet, body_text, in_reply_to, references, attachments,
+truncated`.
+
+`attachments` is a list of `{filename, mime_type, size_bytes}` objects
+(metadata only — never the attachment content). An empty list means the
+message had no attachments. Use it as a positive signal for invoices and
+receipts: an `application/pdf` attachment whose filename contains
+"invoice"/"rechnung"/"facture"/a month code is a strong CONSULTANT_INVOICE
+or VENDOR_NOTICE cue. Absence of an attachment is NOT by itself a reason to
+trash.
 
 Messages are already in chronological order (oldest first). The fetch was
 done outside this session via service-account auth — you have no Gmail
@@ -63,8 +72,10 @@ thread give context.
   marketing-looking content.** Action: trash (STEP 5a).
 
 - **CONSULTANT_INVOICE** — a consultant on the SGEPT invoice list has sent
-  an invoice. Signals: PDF attachment, subject contains "invoice"/"rechnung"
-  /"facture", sender is one of the 20 SGEPT consultants. The authoritative
+  an invoice. Signals: a PDF entry in `attachments` (filename often contains
+  "invoice"/"rechnung"/"facture" or a month code), subject contains
+  "invoice"/"rechnung"/"facture", sender is one of the 20 SGEPT consultants
+  (typically an `@sgept.org` address). The authoritative
   list lives in `sgept-backoffice/invoicing/PROTOCOL.md` §1 but you do NOT
   need to read that — heuristic recognition is enough here. Action: leave
   the message untouched, do NOT file a Linear issue (the monthly invoice
