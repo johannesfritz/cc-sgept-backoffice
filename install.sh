@@ -7,6 +7,18 @@
 
 set -euo pipefail
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Create REPO-RELATIVE symlinks so they resolve on any host, not just the one that
+# ran the installer. Storing the absolute $PLUGIN_ROOT/$SCRIPT_DIR path baked in
+# /home/deploy/... and broke every other checkout (JCC-1293).
+link_rel() {  # link_rel <source> <link-path>
+  local src link rel
+  src="$( cd "$( dirname "$1" )" && pwd )/$( basename "$1" )"
+  link="$2"
+  mkdir -p "$( dirname "$link" )"
+  rel="$( python3 -c 'import os,sys; print(os.path.relpath(sys.argv[1], os.path.dirname(sys.argv[2])))' "$src" "$link" )"
+  ln -sfn "$rel" "$link"
+}
 PLUGIN_ROOT="$SCRIPT_DIR"
 WORKSPACE_DIR="${CLAUDE_WORKSPACE_DIR:-$PWD}"
 CLAUDE_DIR="$WORKSPACE_DIR/.claude"
@@ -19,10 +31,10 @@ echo "  target:       $CLAUDE_DIR"
 mkdir -p "$CLAUDE_DIR"/{commands,agents,prompts,rules}
 shopt -s nullglob
 
-for f in "$PLUGIN_ROOT/commands/"*.md; do ln -sfn "$f" "$CLAUDE_DIR/commands/$(basename "$f")"; echo "  command:  $(basename "$f")"; done
-for f in "$PLUGIN_ROOT/agents/"*.md;   do ln -sfn "$f" "$CLAUDE_DIR/agents/$(basename "$f")";   echo "  agent:    $(basename "$f")"; done
-for f in "$PLUGIN_ROOT/prompts/"*.md;  do ln -sfn "$f" "$CLAUDE_DIR/prompts/$(basename "$f")";  echo "  prompt:   $(basename "$f")"; done
-for f in "$PLUGIN_ROOT/rules/"*.md;    do ln -sfn "$f" "$CLAUDE_DIR/rules/$(basename "$f")";    echo "  rule:     $(basename "$f")"; done
+for f in "$PLUGIN_ROOT/commands/"*.md; do link_rel "$f" "$CLAUDE_DIR/commands/$(basename "$f")"; echo "  command:  $(basename "$f")"; done
+for f in "$PLUGIN_ROOT/agents/"*.md;   do link_rel "$f" "$CLAUDE_DIR/agents/$(basename "$f")";   echo "  agent:    $(basename "$f")"; done
+for f in "$PLUGIN_ROOT/prompts/"*.md;  do link_rel "$f" "$CLAUDE_DIR/prompts/$(basename "$f")";  echo "  prompt:   $(basename "$f")"; done
+for f in "$PLUGIN_ROOT/rules/"*.md;    do link_rel "$f" "$CLAUDE_DIR/rules/$(basename "$f")";    echo "  rule:     $(basename "$f")"; done
 
 echo ""
 echo "Install complete. Restart Claude Code (or /init); /invoice, /invoice-nipo, /invoice-gdrive-sync appear."
