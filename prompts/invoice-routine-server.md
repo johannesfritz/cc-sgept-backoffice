@@ -16,7 +16,7 @@ chase missing consultants on the 7th, escalate on the 14th.
 
 **Authoritative reference.** Before doing anything, read
 `sgept-backoffice/invoicing/PROTOCOL.md`. It contains:
-- §1: the 20-consultant list and email aliases
+- §1: the 18-consultant list, email aliases, and the NO-CHASE flag
 - §7: the German email template for Mrs Peterhans
 - §9: reminder template
 - §12: escalation template
@@ -81,8 +81,9 @@ A.1 Set `MONTH_DIR=sgept-backoffice/bills/consultants/{{MONTH_YYMM}}`. Create
 it with `mkdir -p` if absent.
 
 A.2 If `$MONTH_DIR/checklist.md` exists, read it to know which consultants
-have already been processed. Otherwise initialise from PROTOCOL.md §1: 20
-rows, all `Status: -` (missing).
+have already been processed. Otherwise initialise from PROTOCOL.md §1: 18
+rows, all `Status: -` (missing) — except any consultant whose §1 Notes begin
+with `NO-CHASE`, who starts at `Status: n/c`.
 
 A.3 Read all sentinel files in `$MONTH_DIR`:
 - `forwarded-on-DD.txt` — the main Peterhans send already happened on day DD
@@ -118,7 +119,7 @@ B.3 For each email found with a PDF attachment:
   fetch the PDF binary (the `id` and `attachmentId` come from the search/get
   JSON).
 - Save to `$MONTH_DIR/<Lastname>, <Firstname> - {{MONTH_YYMM}}.pdf`. Use the
-  consultant's exact name from §1 (e.g. "Schmidt, Maya - 2604.pdf").
+  consultant's exact name from §1 (e.g. "Miriani, Federica - 2604.pdf").
 - If the consultant has multiple invoices in one email (e.g. GTA + DPA for
   Angelo Gerber-Helm), name them with a suffix: `Gerber-Helm, Angelo -
   {{MONTH_YYMM}}-GTA.pdf`, `… -DPA.pdf`.
@@ -192,13 +193,13 @@ body must be HTML (use `<p>`, `<ol>`, `<li>`, `<br>` tags). Concrete shape:
 {{MONTH_GERMAN}}.</p>
 <p>Folgende Rechnungen wurden erhalten:</p>
 <ol>
-  <li>Bationo, Amos</li>
+  <li>Bernatsky, Andrey</li>
   <li>Brito, Rafael</li>
   …
 </ol>
 <p>Noch ausstehend ({{MONTH_GERMAN}}):</p>
 <ul>
-  <li>Schmidt, Maya</li>
+  <li>Harput, Halit</li>
   …
 </ul>
 <p>Herzliche Grüsse,<br>Johannes</p>
@@ -217,7 +218,7 @@ D.4 Write the send spec to `/dev/shm/peterhans-send.json`:
   "body": "<the HTML body above>",
   "html": true,
   "attachments": [
-    "/home/deploy/jf-private/jf-ceo/sgept-backoffice/bills/consultants/{{MONTH_YYMM}}/Bationo, Amos - {{MONTH_YYMM}}.pdf",
+    "/home/deploy/jf-private/jf-ceo/sgept-backoffice/bills/consultants/{{MONTH_YYMM}}/Bernatsky, Andrey - {{MONTH_YYMM}}.pdf",
     ...all received PDF paths, absolute...
   ]
 }
@@ -293,7 +294,8 @@ F.1 Sentinel guard: if `reminder-sent.txt` exists, skip.
 
 F.2 For each consultant still missing (checklist Status=-), look up their
 email from PROTOCOL.md §1. Try both primary and alternate emails where
-applicable.
+applicable. Never include a consultant whose §1 Notes begin with `NO-CHASE`
+(checklist Status `n/c`) — they are not chased, in any mode.
 
 F.3 For each, send the reminder template from PROTOCOL.md §9 via
 `gmail-office-send.py` (one spec per consultant, or a JSON array of specs):
@@ -323,7 +325,8 @@ silently. No escalation needed.
 
 G.3 For each consultant still missing, send the second-reminder template
 from PROTOCOL.md §12 via `gmail-office-send.py` (same shape as
-section F but using the escalation body).
+section F but using the escalation body). Never include a consultant whose §1
+Notes begin with `NO-CHASE` (checklist Status `n/c`).
 
 G.4 Compose a Slack DM to the CEO summarising the still-missing list and
 the actions taken. Send via:
@@ -371,7 +374,7 @@ yourself.
 {
   "mode": "{{MODE}}",
   "month": "{{MONTH_YYMM}}",
-  "consultants_total": 20,
+  "consultants_total": 18,
   "received_total": <int — checklist ✅ count at end of run>,
   "missing_total": <int>,
   "downloaded_this_run": <int — new PDFs landed this run>,
