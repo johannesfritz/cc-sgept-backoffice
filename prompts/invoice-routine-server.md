@@ -52,7 +52,7 @@ Gmail helper — these already exist:
     -> writes the attachment to OUTPUT_PATH.
 - **Mark read** — `python3 .../gmail-office-modify.py --account office --action mark-read --message-ids <id1,id2,...>`.
 - **Send** (works for short replies AND attachment-bearing forwards) —
-  `python3 .../gmail-office-send.py --account office --spec /dev/shm/<name>.json`.
+  `.../gmail-office-send-stamped.sh --account office --spec /dev/shm/<name>.json`.
   Spec fields: `to`, `cc`, `subject`, `body`, `html`, `thread_id`,
   `in_reply_to`, `references`, `attachments` (array of absolute paths).
 - File reads + edits (Read, Glob, Grep, Write, Edit); `git/jq/cat/wc/head/tail/ls/mkdir/cp/python3`.
@@ -166,7 +166,7 @@ cat > /dev/shm/ack-<lastname>.json <<'JSON'
   "references": "<the email's references chain>"
 }
 JSON
-python3 /home/deploy/jf-private/jf-metis/scripts/gmail-office-send.py \
+/home/deploy/jf-private/jf-metis/scripts/gmail-office-send-stamped.sh \
   --account office --spec /dev/shm/ack-<lastname>.json
 ```
 
@@ -226,7 +226,7 @@ D.4 Write the send spec to `/dev/shm/peterhans-send.json`:
 
 D.5 Send:
 ```bash
-python3 /home/deploy/jf-private/jf-metis/scripts/gmail-office-send.py \
+/home/deploy/jf-private/jf-metis/scripts/gmail-office-send-stamped.sh \
   --account office --spec /dev/shm/peterhans-send.json
 ```
 
@@ -277,7 +277,7 @@ sind eingegangen und sind beigefügt:</p>
 <p>Herzliche Grüsse,<br>Johannes</p>
 ```
 
-E.5 Send via `gmail-office-send.py` with the new PDFs as `attachments`,
+E.5 Send via `gmail-office-send-stamped.sh` with the new PDFs as `attachments`,
 `thread_id` of the original forward (if you can retrieve it), and
 `cc: johannes.fritz@sgept.org`.
 
@@ -298,7 +298,7 @@ applicable. Never include a consultant whose §1 Notes begin with `NO-CHASE`
 (checklist Status `n/c`) — they are not chased, in any mode.
 
 F.3 For each, send the reminder template from PROTOCOL.md §9 via
-`gmail-office-send.py` (one spec per consultant, or a JSON array of specs):
+`gmail-office-send-stamped.sh` (one spec per consultant, or a JSON array of specs):
 - Subject: `Reminder: {{MONTH_ENGLISH}} Invoice`
 - Body: PROTOCOL.md §9 body, with `[First Name]` and `[Month] [Year]`
   substituted. Set `"html": false`.
@@ -324,7 +324,7 @@ G.2 If the missing list is empty after sections B and C, EXIT this section
 silently. No escalation needed.
 
 G.3 For each consultant still missing, send the second-reminder template
-from PROTOCOL.md §12 via `gmail-office-send.py` (same shape as
+from PROTOCOL.md §12 via `gmail-office-send-stamped.sh` (same shape as
 section F but using the escalation body). Never include a consultant whose §1
 Notes begin with `NO-CHASE` (checklist Status `n/c`).
 
