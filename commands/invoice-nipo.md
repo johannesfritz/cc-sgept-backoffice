@@ -41,7 +41,7 @@ The skill MUST apply the default period for the chosen tier unless the user expl
 
 | Field | Extraction rule | Default |
 |---|---|---|
-| **Invoice Number** | 5 digits, no hyphen | Required from user; no default |
+| **Invoice Number** | 5 digits, no hyphen | If the user gives none, run `python3 scripts/generate-invoice.py --next-number` and propose its stdout; report any stderr findings |
 | **Invoice Date** | Parse explicit date | Today |
 | **NIPO Tier** | Infer from amount (500/1250/7000); otherwise ask | Required from user |
 | **Currency** | Look for CHF/EUR/USD or symbols €/$ | CHF |

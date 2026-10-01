@@ -1,0 +1,34 @@
+[
+  {
+    "id": 1,
+    "category": "functional",
+    "description": "--next-number prints the next free number from Drive and local",
+    "steps": [
+      "Run python3 scripts/generate-invoice.py --next-number",
+      "Confirm stdout is a single five-digit number",
+      "Confirm it equals one more than the highest 26xxx across the Drive folder list and the local invoicing folder"
+    ],
+    "passes": true
+  },
+  {
+    "id": 2,
+    "category": "functional",
+    "description": "one-sided and duplicate numbers are reported on stderr",
+    "steps": [
+      "Run the same command and read stderr",
+      "Confirm 26015 is reported as used by two folders",
+      "Run the report acceptance test and confirm it passes"
+    ],
+    "passes": true
+  },
+  {
+    "id": 3,
+    "category": "integration",
+    "description": "the commands, the governance rule and the Metis handler use --next-number",
+    "steps": [
+      "Read the numbering step of commands/invoice.md, commands/invoice-nipo.md, rules/invoice-governance.md and prompts/invoice-handler.md",
+      "Confirm each calls --next-number and none lists the local folder to pick a number"
+    ],
+    "passes": true
+  }
+]

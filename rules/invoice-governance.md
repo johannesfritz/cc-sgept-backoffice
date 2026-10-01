@@ -13,7 +13,7 @@ Invariants every invoice must satisfy. Violations have produced broken invoices 
 ## Numbering
 
 - **5 digits, no separator.** `26015`, `26007`. Never `26-015`, `26/015`, `26_015`. Strip any separators before passing to the script.
-- **Sequential.** The next number is the maximum of trailing numbers in `jf-ceo/sgept-backoffice/invoicing/*` folder names, plus 1. Never skip; never duplicate.
+- **Sequential.** Take the next number from `python3 scripts/generate-invoice.py --next-number` (add `--year YY` for another year). It prints the highest number across the Drive invoicing folder and the local invoicing folder, plus 1, and lists one-sided and duplicate numbers on stderr. Never pick a number by listing a single folder. Never skip; never duplicate.
 
 ## Dates
 

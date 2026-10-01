@@ -57,10 +57,10 @@ Once an invoice JFM workflow YAML exists at `cc-project-mgmt-team/workflows/invo
 ## STEP B — Pick the next invoice number
 
 ```bash
-ls /home/deploy/jf-private/jf-ceo/sgept-backoffice/invoicing/ | grep -oE ' [0-9]{5}$' | tr -d ' ' | sort -n | tail -1
+python3 /home/deploy/jf-private/claude-setup/cc-sgept-backoffice/scripts/generate-invoice.py --next-number
 ```
 
-Add 1. That's the next number. If the max is `26015`, the next is `26016`. (If the CEO specified a number explicitly in their request, use that and skip this step.)
+The single stdout line is the next number: the highest number across the Drive invoicing folder and the local invoicing folder, plus 1. Its stderr lists numbers present on one side only and numbers used by more than one folder; mention any finding in the reply to the CEO. (If the CEO specified a number explicitly in their request, use that and skip this step.)
 
 ## STEP B.0 — Extract everything you can in one pass
 

@@ -726,6 +726,72 @@ def generate_from_spec(spec):
     raise ValueError(f"Unknown invoice type: {inv_type!r}. Expected 'nipo' or 'standard'.")
 
 
+def _number_of(folder_name: str) -> str | None:
+    """Return the trailing five-digit invoice number of a folder name, or None."""
+    match = re.search(r' (\d{5})$', folder_name)
+    return match.group(1) if match else None
+
+
+def _numbers_by_side(year: int | None) -> tuple[dict[str, list[str]], dict[str, list[str]], str]:
+    """Group folder names by invoice number on the local and Drive side for one year.
+
+    Returns (local, drive, yy) where local and drive map number -> folder names.
+    """
+    yy = f"{(datetime.now().year if year is None else year) % 100:02d}"
+    sys.path.insert(0, str(SCRIPT_PATH.parent))
+    import gdrive_upload
+
+    local_names = [p.name for p in OUTPUT_DIR.iterdir() if p.is_dir()] if OUTPUT_DIR.exists() else []
+    sides = []
+    for names in (local_names, gdrive_upload.list_invoice_folders()):
+        grouped: dict[str, list[str]] = {}
+        for name in names:
+            number = _number_of(name)
+            if number is not None and number.startswith(yy):
+                grouped.setdefault(number, []).append(name)
+        sides.append(grouped)
+    return sides[0], sides[1], yy
+
+
+def next_invoice_number(year: int | None = None) -> str:
+    """Return the next free invoice number for a year (two-digit YY, default current year).
+
+    It is the highest number for that year across the local invoicing folder
+    and the Drive invoicing folder, plus one; "YY001" when the year has none.
+    """
+    local, drive, yy = _numbers_by_side(year)
+    used = {int(n) for n in (*local, *drive)}
+    return str(max(used) + 1) if used else f"{yy}001"
+
+
+def invoice_number_report(year: int | None = None) -> dict:
+    """Report where the invoice numbers of a year disagree between local and Drive.
+
+    Returns {"drive_only": sorted numbers on Drive only, "local_only": sorted
+    numbers locally only, "duplicates": number -> folder names, for numbers
+    used by more than one folder on the same side}.
+    """
+    local, drive, _ = _numbers_by_side(year)
+    duplicates: dict[str, list[str]] = {}
+    for side in (local, drive):
+        for number, names in side.items():
+            if len(names) > 1:
+                duplicates.setdefault(number, []).extend(names)
+    return {
+        "drive_only": sorted(set(drive) - set(local)),
+        "local_only": sorted(set(local) - set(drive)),
+        "duplicates": duplicates,
+    }
+
+
+def _print_number_report(report: dict) -> None:
+    """Write the findings of invoice_number_report to stderr."""
+    print(f"Drive only (no local copy): {', '.join(report['drive_only']) or 'none'}", file=sys.stderr)
+    print(f"Local only (not on Drive): {', '.join(report['local_only']) or 'none'}", file=sys.stderr)
+    for number, names in sorted(report['duplicates'].items()):
+        print(f"Duplicate {number}: used by {len(names)} folders: {'; '.join(names)}", file=sys.stderr)
+
+
 def _cli():
     import argparse
     ap = argparse.ArgumentParser(description="SGEPT Invoice Generator")
@@ -733,7 +799,17 @@ def _cli():
                     help="Path to JSON spec file (see knowledge/invoice-spec-schema.md).")
     ap.add_argument('--no-sync', action='store_true',
                     help="Skip Drive upload (overrides spec.sync).")
+    ap.add_argument('--next-number', action='store_true',
+                    help="Print the next free invoice number (max of Drive and local, plus 1); "
+                         "report one-sided and duplicate numbers on stderr.")
+    ap.add_argument('--year', type=int, metavar='YY',
+                    help="Two-digit year for --next-number (default: current year).")
     args = ap.parse_args()
+
+    if args.next_number:
+        _print_number_report(invoice_number_report(args.year))
+        print(next_invoice_number(args.year))
+        return
 
     if args.spec_file:
         with open(args.spec_file) as f:

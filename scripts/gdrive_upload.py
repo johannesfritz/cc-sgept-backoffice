@@ -89,6 +89,45 @@ def sync_to_gdrive(
     raise RuntimeError(f"Unsupported platform for Drive sync: {sys.platform}")
 
 
+# ------------------------------------------------------------ Drive listing
+
+def list_invoice_folders() -> list[str]:
+    """Return the names of all non-trashed folders directly under the Drive invoicing folder.
+
+    Reads every result page through the Drive API with the service account,
+    on every platform. Read-only: nothing in Drive is changed.
+    """
+    if not SERVICE_ACCOUNT_PATH.exists():
+        raise FileNotFoundError(
+            f"Drive service account credential not found: {SERVICE_ACCOUNT_PATH}"
+        )
+
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+
+    creds = service_account.Credentials.from_service_account_file(
+        str(SERVICE_ACCOUNT_PATH), scopes=DRIVE_SCOPES,
+    ).with_subject(DRIVE_IMPERSONATE_SUBJECT)
+    drive = build('drive', 'v3', credentials=creds, cache_discovery=False)
+
+    query = (
+        f"'{GDRIVE_FOLDER_ID_ROOT}' in parents and "
+        "mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+    )
+    names: list[str] = []
+    page_token = None
+    while True:
+        res = drive.files().list(
+            q=query, fields="nextPageToken, files(name)", pageSize=1000,
+            pageToken=page_token,
+            supportsAllDrives=True, includeItemsFromAllDrives=True,
+        ).execute()
+        names.extend(f['name'] for f in res.get('files', []))
+        page_token = res.get('nextPageToken')
+        if not page_token:
+            return names
+
+
 # --------------------------------------------------------------------- macOS
 
 def _sync_macos(docx_path, pdf_path, inv_num, abbrev, is_nipo):
