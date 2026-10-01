@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "category": "functional",
+    "description": "--register files a hand-made PDF locally and uploads it to Drive",
+    "steps": [
+      "Run test_register_files_invoice_locally_and_uploads",
+      "Run python3 scripts/generate-invoice.py --help and confirm --register is documented"
+    ],
+    "passes": true
+  },
+  {
+    "id": 2,
+    "category": "error",
+    "description": "--register refuses a number already in use and uploads nothing",
+    "steps": [
+      "Run test_register_refuses_used_number"
+    ],
+    "passes": true
+  },
+  {
+    "id": 3,
+    "category": "integration",
+    "description": "the governance rule tells people when to use --register",
+    "steps": [
+      "Read rules/invoice-governance.md and confirm the section names --register"
+    ],
+    "passes": true
+  }
+]

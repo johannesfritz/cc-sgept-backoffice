@@ -63,6 +63,14 @@ The sync uploads through the Drive API on every platform. It never reads or writ
 - `SGEPT-invoice{NUMBER}.docx` and `.pdf` inside are deleted before the fresh files are uploaded.
 - No `(1)` suffixes. No stale duplicates.
 
+## Invoices made outside the generator
+
+An invoice written by hand, or drafted by Metis, still needs its number filed. On the day it is sent, run:
+
+`python3 scripts/generate-invoice.py --register --number NNNNN --client "Client Name" --date YYYY-MM-DD --file path/to/invoice.pdf [--file ...] [--nipo]`
+
+`--register` refuses a number already used locally or on Drive. Otherwise it creates the local folder, copies the files in and uploads them to the matching Drive folder. Add `--no-sync` to skip the upload.
+
 ## VAT (standard invoices)
 
 - Default: `"No VAT is applied."`

@@ -14,6 +14,7 @@ Overwrite-in-place semantics:
 
 from __future__ import annotations
 
+import mimetypes
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -118,10 +119,8 @@ def list_invoice_folders() -> list[str]:
 
 # ----------------------------------------------------------------- Drive API
 
-def _sync_api(
-    docx_path: Path, pdf_path: Path, inv_num: str, abbrev: str, is_nipo: bool,
-) -> str:
-    """Reuse or create the Drive folder for inv_num, replace its SGEPT-invoice files, return its URL."""
+def _open_drive():
+    """Return a Drive v3 service for the service account, impersonating the invoicing owner."""
     if not SERVICE_ACCOUNT_PATH.exists():
         raise FileNotFoundError(
             f"Drive service account credential not found: {SERVICE_ACCOUNT_PATH}"
@@ -129,14 +128,15 @@ def _sync_api(
 
     from google.oauth2 import service_account
     from googleapiclient.discovery import build
-    from googleapiclient.http import MediaFileUpload
 
     creds = service_account.Credentials.from_service_account_file(
         str(SERVICE_ACCOUNT_PATH), scopes=DRIVE_SCOPES,
     ).with_subject(DRIVE_IMPERSONATE_SUBJECT)
-    drive = build('drive', 'v3', credentials=creds, cache_discovery=False)
+    return build('drive', 'v3', credentials=creds, cache_discovery=False)
 
-    # Find a folder under the root whose name ends with ' {inv_num}'.
+
+def _reuse_or_create_folder(drive, inv_num: str, abbrev: str, is_nipo: bool) -> tuple[str, str]:
+    """Return (folder id, folder name) of the Drive folder ending in ' {inv_num}', creating it if absent."""
     q = (
         f"'{GDRIVE_FOLDER_ID_ROOT}' in parents and "
         f"mimeType = 'application/vnd.google-apps.folder' and "
@@ -147,24 +147,55 @@ def _sync_api(
         supportsAllDrives=True, includeItemsFromAllDrives=True,
     ).execute()
     candidates = [f for f in res.get('files', []) if f['name'].endswith(f" {inv_num}")]
-
     if candidates:
-        folder_id = candidates[0]['id']
-        folder_name = candidates[0]['name']
-    else:
-        date_prefix = datetime.now().strftime('%y%m%d')
-        type_token = 'NIPO ' if is_nipo else ''
-        folder_name = f"{date_prefix} {type_token}{abbrev} {inv_num}"
-        folder = drive.files().create(
-            body={
-                'name': folder_name,
-                'mimeType': 'application/vnd.google-apps.folder',
-                'parents': [GDRIVE_FOLDER_ID_ROOT],
-            },
+        return candidates[0]['id'], candidates[0]['name']
+
+    date_prefix = datetime.now().strftime('%y%m%d')
+    type_token = 'NIPO ' if is_nipo else ''
+    folder_name = f"{date_prefix} {type_token}{abbrev} {inv_num}"
+    folder = drive.files().create(
+        body={
+            'name': folder_name,
+            'mimeType': 'application/vnd.google-apps.folder',
+            'parents': [GDRIVE_FOLDER_ID_ROOT],
+        },
+        fields='id, name',
+        supportsAllDrives=True,
+    ).execute()
+    return folder['id'], folder_name
+
+
+def upload_invoice_files(inv_num: str, abbrev: str, is_nipo: bool, paths: list[Path]) -> str:
+    """Upload files under their own names into the Drive folder for inv_num; return the folder URL.
+
+    Reuses the folder ending in ' {inv_num}' or creates 'YYMMDD [NIPO ]{abbrev} {inv_num}'.
+    Unlike _sync_api, nothing already in the folder is deleted or renamed.
+    """
+    from googleapiclient.http import MediaFileUpload
+
+    drive = _open_drive()
+    folder_id, folder_name = _reuse_or_create_folder(drive, inv_num, abbrev, is_nipo)
+    for path in paths:
+        mime = mimetypes.guess_type(path.name)[0] or 'application/octet-stream'
+        drive.files().create(
+            body={'name': path.name, 'parents': [folder_id]},
+            media_body=MediaFileUpload(str(path), mimetype=mime, resumable=False),
             fields='id, name',
             supportsAllDrives=True,
         ).execute()
-        folder_id = folder['id']
+    url = f"https://drive.google.com/drive/folders/{folder_id}"
+    print(f"\nUploaded to Google Drive (API): {folder_name} ({url})")
+    return url
+
+
+def _sync_api(
+    docx_path: Path, pdf_path: Path, inv_num: str, abbrev: str, is_nipo: bool,
+) -> str:
+    """Reuse or create the Drive folder for inv_num, replace its SGEPT-invoice files, return its URL."""
+    from googleapiclient.http import MediaFileUpload
+
+    drive = _open_drive()
+    folder_id, folder_name = _reuse_or_create_folder(drive, inv_num, abbrev, is_nipo)
 
     # Delete any stale SGEPT-invoice{inv_num}.* files in that folder.
     stale_q = (

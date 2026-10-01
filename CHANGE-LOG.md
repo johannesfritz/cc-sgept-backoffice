@@ -1,5 +1,11 @@
 # Change log
 
+## 2026-10-01: Register invoices made outside the generator (plan invoice-numbering-drive, stage register-outside-invoice)
+
+- `scripts/gdrive_upload.py`: add `upload_invoice_files()`; `_open_drive()` and `_reuse_or_create_folder()` are extracted from `_sync_api` and shared.
+- `scripts/generate-invoice.py`: add `register_invoice()` and the `--register --number --client --date --file [--nipo] [--no-sync]` flags.
+- `rules/invoice-governance.md`: new section telling people to file hand-made and Metis invoices with `--register` on the day they are sent.
+
 ## 2026-10-01: Generators refuse numbers used elsewhere (plan invoice-numbering-drive, stage refuse-used-numbers)
 
 - `scripts/generate-invoice.py`: add `number_in_use()`; the NIPO and standard generators (and so `generate_from_spec`) raise `ValueError` before writing when another local folder or a Drive-only folder holds the number. Regenerating into the same target folder stays allowed.

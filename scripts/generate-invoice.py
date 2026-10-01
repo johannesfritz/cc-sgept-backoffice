@@ -775,6 +775,35 @@ def number_in_use(number: str, target_folder: str | None = None) -> str | None:
     return None
 
 
+def register_invoice(
+    number: str,
+    client: str,
+    invoice_date: str,
+    files: list[Path],
+    is_nipo: bool = False,
+    sync: bool = True,
+) -> Path:
+    """File an invoice made outside the generator locally and, unless sync is false, on Drive.
+
+    Creates OUTPUT_DIR / "YYMMDD [NIPO ]<client> <number>" from the invoice date and
+    copies the files in under their own names. Raises ValueError, writing and
+    uploading nothing, when the number is already in use. Returns the local folder.
+    """
+    reason = number_in_use(number)
+    if reason:
+        raise ValueError(reason)
+    date_prefix = datetime.strptime(invoice_date, '%Y-%m-%d').strftime('%y%m%d')
+    folder = OUTPUT_DIR / f"{date_prefix} {'NIPO ' if is_nipo else ''}{client} {number}"
+    folder.mkdir(parents=True)
+    for path in files:
+        shutil.copy2(path, folder / path.name)
+    if sync:
+        import gdrive_upload
+        url = gdrive_upload.upload_invoice_files(number, client, is_nipo, files)
+        print(f"DRIVE_OUTPUT: {url}")
+    return folder
+
+
 def invoice_number_report(year: int | None = None) -> dict:
     """Report where the invoice numbers of a year disagree between local and Drive.
 
@@ -815,7 +844,28 @@ def _cli():
                          "report one-sided and duplicate numbers on stderr.")
     ap.add_argument('--year', type=int, metavar='YY',
                     help="Two-digit year for --next-number (default: current year).")
+    ap.add_argument('--register', action='store_true',
+                    help="File an invoice made outside the generator locally and on Drive "
+                         "(needs --number, --client, --date and --file).")
+    ap.add_argument('--number', metavar='NNNNN', help="Invoice number for --register.")
+    ap.add_argument('--client', help="Client name for the folder name, for --register.")
+    ap.add_argument('--date', metavar='YYYY-MM-DD', help="Invoice date for --register.")
+    ap.add_argument('--file', type=Path, action='append', default=[],
+                    help="File to file for --register; repeat for several.")
+    ap.add_argument('--nipo', action='store_true', help="Mark the --register folder as NIPO.")
     args = ap.parse_args()
+
+    if args.register:
+        if not (args.number and args.client and args.date and args.file):
+            ap.error("--register needs --number, --client, --date and at least one --file")
+        sys.path.insert(0, str(SCRIPT_PATH.parent))
+        try:
+            folder = register_invoice(args.number, args.client, args.date, args.file,
+                                      is_nipo=args.nipo, sync=not args.no_sync)
+        except ValueError as err:
+            ap.exit(1, f"Refused: {err}\n")
+        print(f"INVOICE_OUTPUT: {folder}")
+        return
 
     if args.next_number:
         _print_number_report(invoice_number_report(args.year))
