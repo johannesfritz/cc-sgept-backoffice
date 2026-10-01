@@ -1,0 +1,2 @@
+{"stage":"controller","title":"unisolated run-plan drain: invoice-numbering-drive executes in a shared checkout","evidence":"worktree resolution: plan declares worktree: false (explicit opt-out honored)"}
+{"stage": "mac-sync-via-drive-api", "title": "Drop GDRIVE_INVOICING_MAC stub once test_drive_sync.py patches with raising=False", "evidence": "scripts/gdrive_upload.py GDRIVE_INVOICING_MAC; tests/test_drive_sync.py:15"}

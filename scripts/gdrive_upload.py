@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Google Drive upload backend: cross-platform dispatcher.
+"""Google Drive upload backend: Google Drive API v3 on every platform.
 
-macOS -> Drive File Stream mount (filesystem copy).
-Linux -> Google Drive API v3 using the service account at
-         claude-setup/mcp-google-workspace/service-account.json.
+Uses the service account at claude-setup/mcp-google-workspace/service-account.json.
+The Drive for desktop folder is never read: it can list a stale subset of the
+invoice folders and so cannot be trusted for folder reuse.
 
-Overwrite-in-place semantics on both backends:
+Overwrite-in-place semantics:
   - A folder whose name ends in ' {invoice_number}' is reused if present.
     Otherwise a new folder 'YYMMDD [NIPO ]{ABBREV} {NUMBER}' is created.
   - Any existing SGEPT-invoice{NUMBER}.* files in that folder are deleted
@@ -14,8 +14,6 @@ Overwrite-in-place semantics on both backends:
 
 from __future__ import annotations
 
-import os
-import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -23,16 +21,11 @@ from pathlib import Path
 
 GDRIVE_FOLDER_ID_ROOT = "19bPRghIb2L3cdxZzIattO65uM5En6dHM"
 
-# macOS mount of Drive File Stream — canonical jf-private layout uses the
-# CloudStorage/GoogleDrive-johannes.fritz@sgept.org/ Meine Ablage path.
-# Override via SGEPT_GDRIVE_INVOICING env var on different machines.
-_GDRIVE_DEFAULT = (
-    f"{Path.home()}/Library/CloudStorage/GoogleDrive-johannes.fritz@sgept.org/"
-    "Meine Ablage/SGEPT ORG/SGEPT admin/dbx/SGEPT/0 admin/5 invoicing"
-)
-GDRIVE_INVOICING_MAC = Path(os.environ.get("SGEPT_GDRIVE_INVOICING", _GDRIVE_DEFAULT))
+# Retired mount setting. Nothing reads it; the name stays because
+# tests/test_drive_sync.py patches it with monkeypatch.setattr, which needs it to exist.
+GDRIVE_INVOICING_MAC: Path | None = None
 
-# Linux: expect the mcp-google-workspace service account credential.
+# The mcp-google-workspace service account credential.
 _SCRIPT_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _SCRIPT_DIR.parent
 _CLAUDE_SETUP_ROOT = _REPO_ROOT.parent
@@ -53,10 +46,9 @@ def sync_to_gdrive(
     docx_path=None,
     output_dir=None,
 ):
-    """Upload .docx + .pdf to the Drive invoicing folder. Returns destination descriptor.
+    """Upload .docx + .pdf to the Drive invoicing folder through the Drive API.
 
-    On macOS the return is the local Path to the destination folder.
-    On Linux the return is a string URL to the Drive folder.
+    Returns the URL of the Drive folder.
     """
     inv_num = str(invoice_number).replace('-', '').strip()
 
@@ -82,11 +74,7 @@ def sync_to_gdrive(
         from pdf_convert import convert_to_pdf
         pdf_path = convert_to_pdf(docx_path)
 
-    if sys.platform == 'darwin':
-        return _sync_macos(docx_path, pdf_path, inv_num, abbrev, is_nipo)
-    if sys.platform.startswith('linux'):
-        return _sync_linux(docx_path, pdf_path, inv_num, abbrev, is_nipo)
-    raise RuntimeError(f"Unsupported platform for Drive sync: {sys.platform}")
+    return _sync_api(docx_path, pdf_path, inv_num, abbrev, is_nipo)
 
 
 # ------------------------------------------------------------ Drive listing
@@ -128,40 +116,12 @@ def list_invoice_folders() -> list[str]:
             return names
 
 
-# --------------------------------------------------------------------- macOS
+# ----------------------------------------------------------------- Drive API
 
-def _sync_macos(docx_path, pdf_path, inv_num, abbrev, is_nipo):
-    if not GDRIVE_INVOICING_MAC.exists():
-        raise FileNotFoundError(
-            f"Google Drive mount not available: {GDRIVE_INVOICING_MAC}. "
-            "Is the Drive File Stream client running?"
-        )
-
-    existing = [
-        p for p in GDRIVE_INVOICING_MAC.iterdir()
-        if p.is_dir() and p.name.endswith(f" {inv_num}")
-    ]
-    if existing:
-        dest_folder = existing[0]
-    else:
-        date_prefix = datetime.now().strftime('%y%m%d')
-        type_token = 'NIPO ' if is_nipo else ''
-        dest_folder = GDRIVE_INVOICING_MAC / f"{date_prefix} {type_token}{abbrev} {inv_num}"
-        dest_folder.mkdir(parents=True, exist_ok=False)
-
-    for stale in dest_folder.glob(f"SGEPT-invoice{inv_num}.*"):
-        stale.unlink()
-
-    shutil.copy2(docx_path, dest_folder / f"SGEPT-invoice{inv_num}.docx")
-    shutil.copy2(pdf_path, dest_folder / f"SGEPT-invoice{inv_num}.pdf")
-
-    print(f"\nSynced to Google Drive (File Stream): {dest_folder}")
-    return dest_folder
-
-
-# --------------------------------------------------------------------- Linux
-
-def _sync_linux(docx_path, pdf_path, inv_num, abbrev, is_nipo):
+def _sync_api(
+    docx_path: Path, pdf_path: Path, inv_num: str, abbrev: str, is_nipo: bool,
+) -> str:
+    """Reuse or create the Drive folder for inv_num, replace its SGEPT-invoice files, return its URL."""
     if not SERVICE_ACCOUNT_PATH.exists():
         raise FileNotFoundError(
             f"Drive service account credential not found: {SERVICE_ACCOUNT_PATH}"

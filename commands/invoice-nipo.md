@@ -124,9 +124,9 @@ If ANY check fails, the script has regressed — stop, report the failure to the
 Two locations (the script handles both automatically):
 
 1. **Local working copy:** `sgept-backoffice/invoicing/YYMMDD NIPO [Institution] [Number]/Invoice-[NUMBER]-[Institution]-NIPO.docx`
-2. **Google Drive shipping folder:** `.../SGEPT admin/dbx/SGEPT/0 admin/5 invoicing/YYMMDD NIPO [ABBREV] [Number]/SGEPT-invoice[NUMBER].docx` + `.pdf`
+2. **Google Drive shipping folder** (folder `5 invoicing (Debitoren)`, uploaded through the Drive API): `YYMMDD NIPO [ABBREV] [Number]/SGEPT-invoice[NUMBER].docx` + `.pdf`
 
-The Drive sync runs automatically after generation: the script converts the `.docx` to PDF via Word (`docx2pdf`), then copies both files to Drive with the standardized `SGEPT-invoice[NUMBER]` naming. If a folder ending in ` [NUMBER]` already exists, the files inside are overwritten — no version drift.
+The Drive sync runs automatically after generation: the script converts the `.docx` to PDF via Word (`docx2pdf`), then uploads both files to Drive through the Drive API with the standardized `SGEPT-invoice[NUMBER]` naming. If a folder ending in ` [NUMBER]` already exists, the files inside are overwritten — no version drift.
 
 ## Re-syncing after edits
 

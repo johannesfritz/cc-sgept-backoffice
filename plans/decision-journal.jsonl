@@ -1,0 +1,1 @@
+{"stage": "mac-sync-via-drive-api", "decision": "Kept GDRIVE_INVOICING_MAC = None in gdrive_upload.py: tests/test_drive_sync.py patches it with raising=True, so removing it fails the acceptance test; brief says tests are not editable", "reversible": true}

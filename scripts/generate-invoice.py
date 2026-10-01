@@ -24,20 +24,9 @@ DATA_DIR = REPO_DIR / "config"
 TEMPLATES_DIR = REPO_DIR / "templates" / "invoices"
 OUTPUT_DIR = JF_PRIVATE_ROOT / "jf-ceo" / "sgept-backoffice" / "invoicing"
 
-# Google Drive shipping destination.
-# https://drive.google.com/drive/u/0/folders/19bPRghIb2L3cdxZzIattO65uM5En6dHM
-# macOS: direct filesystem copy via Drive File Stream mount (canonical jf-private
-#        layout uses CloudStorage/GoogleDrive-johannes.fritz@sgept.org/).
-# Linux: Google Drive API via gdrive_upload.py (Phase 3).
-# Override via SGEPT_GDRIVE_INVOICING env var on different machines.
+# Google Drive shipping destination, reached through the Drive API by
+# gdrive_upload.py: https://drive.google.com/drive/u/0/folders/19bPRghIb2L3cdxZzIattO65uM5En6dHM
 GDRIVE_FOLDER_ID = "19bPRghIb2L3cdxZzIattO65uM5En6dHM"
-_GDRIVE_DEFAULT = (
-    f"{Path.home()}/Library/CloudStorage/GoogleDrive-johannes.fritz@sgept.org/"
-    "Meine Ablage/SGEPT ORG/SGEPT admin/dbx/SGEPT/0 admin/5 invoicing"
-)
-GDRIVE_INVOICING_MAC = Path(os.environ.get("SGEPT_GDRIVE_INVOICING", _GDRIVE_DEFAULT))
-# Back-compat alias for any external callers.
-GDRIVE_INVOICING = GDRIVE_INVOICING_MAC
 
 # Template files
 TEMPLATE_STANDARD = TEMPLATES_DIR / "SGEPT - Invoice standard.docx"
@@ -110,11 +99,8 @@ def convert_to_pdf(docx_path):
 def sync_to_gdrive(invoice_number, abbrev, is_nipo=False, docx_path=None):
     """Copy a local invoice (.docx + .pdf) to the Google Drive invoicing folder.
 
-    Delegates to gdrive_upload.sync_to_gdrive which dispatches to the macOS
-    Drive File Stream copy or the Linux Drive API upload.
-
-    Returns the destination folder Path (macOS) or a remote descriptor string
-    (Linux; the Drive folder URL).
+    Delegates to gdrive_upload.sync_to_gdrive, which uploads through the Drive
+    API on every platform. Returns the Drive folder URL.
     """
     sys.path.insert(0, str(SCRIPT_PATH.parent))
     from gdrive_upload import sync_to_gdrive as _sync

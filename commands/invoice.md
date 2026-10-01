@@ -104,9 +104,9 @@ PYEOF
 Two locations (the script handles both automatically):
 
 1. **Local working copy:** `sgept-backoffice/invoicing/YYMMDD [Descriptor] [Company] [NUMBER]/Invoice-[NUMBER]-[COMPANY].docx`
-2. **Google Drive shipping folder:** `.../SGEPT admin/dbx/SGEPT/0 admin/5 invoicing/YYMMDD [ABBREV] [NUMBER]/SGEPT-invoice[NUMBER].docx` + `.pdf`
+2. **Google Drive shipping folder** (folder `5 invoicing (Debitoren)`, uploaded through the Drive API): `YYMMDD [ABBREV] [NUMBER]/SGEPT-invoice[NUMBER].docx` + `.pdf`
 
-The Drive sync runs automatically after generation: the script converts the `.docx` to PDF via Word (`docx2pdf`), then copies both files to Drive with the standardized `SGEPT-invoice[NUMBER]` naming. If a folder ending in ` [NUMBER]` already exists, the files inside are overwritten — no version drift.
+The Drive sync runs automatically after generation: the script converts the `.docx` to PDF via Word (`docx2pdf`), then uploads both files to Drive through the Drive API with the standardized `SGEPT-invoice[NUMBER]` naming. If a folder ending in ` [NUMBER]` already exists, the files inside are overwritten — no version drift.
 
 The script auto-selects the bank account by currency:
 - **CHF**: CH80 0078 1624 8968 1200 0

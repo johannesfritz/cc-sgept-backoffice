@@ -7,7 +7,7 @@ Re-sync an existing invoice to the Google Drive shipping folder. Use this after 
 The command:
 1. Finds the local `.docx` (searches `sgept-backoffice/invoicing/` recursively)
 2. Regenerates the `.pdf` via Word (`docx2pdf`)
-3. Copies both files to the Drive folder as `SGEPT-invoice[NUMBER].docx` / `.pdf`
+3. Uploads both files through the Drive API to the Drive folder as `SGEPT-invoice[NUMBER].docx` / `.pdf`
 4. Overwrites any existing `SGEPT-invoice[NUMBER].*` files in that folder — no version conflicts
 
 Note: `/invoice` and `/invoice-nipo` already sync to Drive automatically on first generation. This command is only for re-syncs.
@@ -42,11 +42,11 @@ PYEOF
 ## Overwrite Semantics
 
 - If a Drive folder whose name ends in ` [NUMBER]` exists (any date prefix, any type), it is reused.
-- `SGEPT-invoice[NUMBER].docx` and `SGEPT-invoice[NUMBER].pdf` inside that folder are removed before the fresh copies are placed.
+- `SGEPT-invoice[NUMBER].docx` and `SGEPT-invoice[NUMBER].pdf` inside that folder are removed before the fresh files are uploaded.
 - No `(1)` suffixes, no stale duplicates.
 
 ## Output
 
-Destination: `.../SGEPT admin/dbx/SGEPT/0 admin/5 invoicing/YYMMDD [NIPO ][ABBREV] [NUMBER]/`
+Destination: Drive folder `5 invoicing (Debitoren)`, subfolder `YYMMDD [NIPO ][ABBREV] [NUMBER]`, reached through the Drive API.
 
 Contains `SGEPT-invoice[NUMBER].docx` and `SGEPT-invoice[NUMBER].pdf`.
