@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "category": "error",
+    "description": "a number used by another local folder is refused and nothing is written",
+    "steps": [
+      "Run test_refuses_number_used_by_another_local_folder",
+      "Confirm the error names the number and the existing folder"
+    ],
+    "passes": true
+  },
+  {
+    "id": 2,
+    "category": "error",
+    "description": "a number present only on Drive is refused",
+    "steps": [
+      "Run test_refuses_number_present_only_on_drive"
+    ],
+    "passes": true
+  },
+  {
+    "id": 3,
+    "category": "functional",
+    "description": "regenerating the same invoice still works",
+    "steps": [
+      "Run test_regenerating_same_invoice_is_allowed"
+    ],
+    "passes": true
+  }
+]

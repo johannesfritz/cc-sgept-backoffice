@@ -408,6 +408,9 @@ def generate_nipo_invoice(
     if len(company_short) > 25:
         company_short = company_short[:25].rsplit(' ', 1)[0]
     folder_name = f"{dt.strftime('%y%m%d')} NIPO {company_short} {inv_num}"
+    reason = number_in_use(inv_num, folder_name)
+    if reason:
+        raise ValueError(reason)
     output_subdir = OUTPUT_DIR / folder_name
     output_subdir.mkdir(exist_ok=True)
 
@@ -646,6 +649,9 @@ def generate_standard_invoice(
     # Use first word of subject_line as descriptor (e.g. "GTA-DB", "Dashboard")
     descriptor = subject_line.split()[0] if subject_line else 'Invoice'
     folder_name = f"{dt.strftime('%y%m%d')} {descriptor} {company_short} {inv_num}"
+    reason = number_in_use(inv_num, folder_name)
+    if reason:
+        raise ValueError(reason)
     output_subdir = OUTPUT_DIR / folder_name
     output_subdir.mkdir(exist_ok=True)
 
@@ -748,6 +754,25 @@ def next_invoice_number(year: int | None = None) -> str:
     local, drive, yy = _numbers_by_side(year)
     used = {int(n) for n in (*local, *drive)}
     return str(max(used) + 1) if used else f"{yy}001"
+
+
+def number_in_use(number: str, target_folder: str | None = None) -> str | None:
+    """Return a one-line reason when an invoice number is taken, None when it is free.
+
+    A number is taken when a local folder other than target_folder ends with it,
+    or when a Drive folder ends with it and no local folder does (an invoice made
+    elsewhere). The local folder named target_folder never counts, so the same
+    invoice can be regenerated.
+    """
+    if not re.fullmatch(r'\d{5}', number):
+        raise ValueError(f"Invoice number must be five digits, got {number!r}")
+    local, drive, _ = _numbers_by_side(2000 + int(number[:2]))
+    others = [name for name in local.get(number, []) if name != target_folder]
+    if others:
+        return f"Invoice number {number} is already used by local folder '{others[0]}'"
+    if number not in local and number in drive:
+        return f"Invoice number {number} is already used on Drive by folder '{drive[number][0]}'"
+    return None
 
 
 def invoice_number_report(year: int | None = None) -> dict:

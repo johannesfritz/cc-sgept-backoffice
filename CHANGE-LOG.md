@@ -1,5 +1,9 @@
 # Change log
 
+## 2026-10-01: Generators refuse numbers used elsewhere (plan invoice-numbering-drive, stage refuse-used-numbers)
+
+- `scripts/generate-invoice.py`: add `number_in_use()`; the NIPO and standard generators (and so `generate_from_spec`) raise `ValueError` before writing when another local folder or a Drive-only folder holds the number. Regenerating into the same target folder stays allowed.
+
 ## 2026-10-01: Next invoice number from Drive and local (plan invoice-numbering-drive, stage next-number-from-drive)
 
 - `scripts/gdrive_upload.py`: add `list_invoice_folders()` (read-only, all pages).
