@@ -8,3 +8,8 @@ venv/
 # Scratch PDFs from local testing
 /tmp/
 /scratch/
+# run-plan machinery
+.run-plan-logs/
+.run-plan-worktrees/
+plans/*.lock
+plans/*.yaml.tmp
