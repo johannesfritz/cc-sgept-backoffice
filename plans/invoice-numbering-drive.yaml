@@ -1,0 +1,808 @@
+id: invoice-numbering-drive
+title: 'Invoice numbering from Drive: next number, refusals, API sync, register, ledger, weekly check'
+workspace: root
+default_model: sonnet
+autonomous: true
+allow_push: true
+worktree: false
+sandbox: false
+max_concurrent_stages: 1
+description: 'Epic JCC-6899. Executable companion to jf-ceo/sgept-backoffice/invoicing/261001-drive-reconciliation.md
+  (Proposed fix), ruled at G1 on 2026-10-01: 10 requirements, R6 cut, R4/R8/R9 restored (plans/invoice-numbering-drive-requirements.md).
+  Acceptance tests in tests/ were written at planning time and fail on the pre-work tree for the right
+  reasons. worktree: false because generate-invoice.py and gdrive_upload.py resolve jf-private and the
+  Drive service-account key relative to the repo''s location, which a nested .run-plan-worktrees checkout
+  breaks. sandbox: false because weekly-check-on-metis deploys to the Metis server over ssh (deploy@204.168.141.21).
+  Headless stages have no Linear MCP: each brief is self-contained and writes its passes to plans/invoice-numbering-drive-passes/<stage-id>.json.
+  Launch from claude-setup/cc-sgept-backoffice: /run-plan plans/invoice-numbering-drive.yaml'
+stages:
+- id: next-number-from-drive
+  title: '[Invoicing]: Take the next invoice number from Drive and local folders'
+  status: pending
+  dispatch:
+    type: claude
+  depends_on: []
+  inputs:
+    brief: |
+      STAGE next-number-from-drive: Make the next invoice number the highest number on Drive or locally, plus one, and report one-sided numbers.
+
+      You work in the git repo claude-setup/cc-sgept-backoffice (its own repo, remote
+      johannesfritz/cc-sgept-backoffice, branch main). Run every command from that repo root.
+      Background: on 2026-10-01 the CEO found two 2026 invoice numbers issued twice (26015 to the
+      Australian Permanent Mission and to Rocky Mountain Institute; 26012 to ANU and printed on the
+      Hinrich invoice), eight sent invoices missing from the Drive invoicing folder and three Drive
+      invoices missing locally. Root causes and the approved fix are in
+      ../../jf-ceo/sgept-backoffice/invoicing/261001-drive-reconciliation.md; the ruled requirements are
+      in plans/invoice-numbering-drive-requirements.md. Read both before starting.
+
+      Places:
+      - Local invoicing folder: the generator's module global OUTPUT_DIR
+        (jf-private/jf-ceo/sgept-backoffice/invoicing). Folder names end in " NNNNN", e.g.
+        "260911 GTA Interos Inc. 26033".
+      - Drive invoicing folder: id 19bPRghIb2L3cdxZzIattO65uM5En6dHM ("5 invoicing (Debitoren)"),
+        reached through the Drive API with the service account that scripts/gdrive_upload.py already
+        uses (impersonating johannes.fritz@sgept.org). Folder names also end in " NNNNN".
+      - Invoice numbers are five digits: two-digit year plus a three-digit sequence (26036).
+
+      Contract the acceptance tests rely on (tests/conftest.py, tests/test_invoice_numbering.py,
+      tests/test_drive_sync.py were written at planning time; they are the specification):
+      - scripts/generate-invoice.py reaches Drive only through the module gdrive_upload, imported at
+        call time (not bound at module import), so a test can replace sys.modules["gdrive_upload"].
+      - It reads the local folder through the module global OUTPUT_DIR at call time.
+      - gdrive_upload.list_invoice_folders() -> list[str] returns the names of all non-trashed folders
+        directly under the Drive invoicing folder (all pages).
+
+      Rules for this stage:
+      - Do not edit or weaken tests/conftest.py, tests/test_invoice_numbering.py or
+        tests/test_drive_sync.py. You may add new test files under tests/.
+      - Follow the code-quality contract (the cc-sgept-os rule code-quality.md and
+        to-backlog/references/code-quality.md): typed, documented public functions, no dead code,
+        explicit errors. End with the structured self-report.
+      - Add one entry to CHANGE-LOG.md at the repo root (create it if absent) in the same commit as the
+        change, then commit and push to origin main.
+      - Stamp every commit with the trailer "Agent: run-plan/invoice-numbering-drive/<stage-id>".
+      - Write caps for this run: at most 3 commits; no Linear writes; no emails sent.
+      - Deny boundary: never write to, rename in or delete from the real Drive invoicing folder or the
+        local invoicing folder (tests use fakes and temporary folders; real runs only read); never
+        renumber or edit an existing invoice; never touch 2025 numbers.
+      - Passes: write the passes below to plans/invoice-numbering-drive-passes/<stage-id>.json in the canonical shape
+        (id, category, description, steps, passes). Exercise each one, flip it to true and save the
+        file immediately after each flip, not in one batch. All passes true is required before DONE.
+
+      WHAT TO BUILD
+      1. gdrive_upload.list_invoice_folders() as specified in the contract above.
+      2. In generate-invoice.py:
+         - next_invoice_number(year: int | None = None) -> str: two-digit year (default: current
+           year); returns the highest NNNNN for that year across local and Drive folder names, plus
+           one; "YY001" when the year has none.
+         - invoice_number_report(year: int | None = None) -> dict with keys "drive_only" and
+           "local_only" (sorted lists of number strings present on one side only) and "duplicates"
+           (dict: number -> list of folder names, for numbers used by more than one folder on the
+           same side).
+         - CLI flag --next-number [--year YY]: print the next number as the only stdout line; print
+           the report's findings to stderr; exit 0.
+      3. Adoption: rules/invoice-governance.md (Numbering), commands/invoice.md,
+         commands/invoice-nipo.md and prompts/invoice-handler.md (STEP B, the Metis path) take the
+         number from --next-number instead of listing the local folder. Delete the old rule sentence
+         "The next number is the maximum of trailing numbers in ... folder names, plus 1."
+      Today the real result must be 26036 or higher, and the stderr report must show 26015 as a
+      duplicate (two local folders, two Drive folders).
+
+      PASSES (write to plans/invoice-numbering-drive-passes/next-number-from-drive.json, flip eagerly):
+      [
+        {
+          "id": 1,
+          "category": "functional",
+          "description": "--next-number prints the next free number from Drive and local",
+          "steps": [
+            "Run python3 scripts/generate-invoice.py --next-number",
+            "Confirm stdout is a single five-digit number",
+            "Confirm it equals one more than the highest 26xxx across the Drive folder list and the local invoicing folder"
+          ],
+          "passes": false
+        },
+        {
+          "id": 2,
+          "category": "functional",
+          "description": "one-sided and duplicate numbers are reported on stderr",
+          "steps": [
+            "Run the same command and read stderr",
+            "Confirm 26015 is reported as used by two folders",
+            "Run the report acceptance test and confirm it passes"
+          ],
+          "passes": false
+        },
+        {
+          "id": 3,
+          "category": "integration",
+          "description": "the commands, the governance rule and the Metis handler use --next-number",
+          "steps": [
+            "Read the numbering step of commands/invoice.md, commands/invoice-nipo.md, rules/invoice-governance.md and prompts/invoice-handler.md",
+            "Confirm each calls --next-number and none lists the local folder to pick a number"
+          ],
+          "passes": false
+        }
+      ]
+      DONE WHEN: --next-number returns the highest number on Drive or locally plus one, and every numbering instruction uses it.
+
+      === SCOPE FENCE: WHAT THIS SLICE DOES NOT OWN ===
+      Earlier stages: none.
+      Later stages own: refusing used numbers (refuse-used-numbers), the macOS API sync (mac-sync-via-drive-api), --register (register-outside-invoice), --ledger (invoice-register-export), the Metis cron and server deployment (weekly-check-on-metis).
+      This slice owns: list_invoice_folders, next_invoice_number, invoice_number_report, --next-number, and the four adoption edits.
+      Out of scope per the plan: R6 printed-number check; renumbering or reissuing sent invoices; 2025 numbers; committing Metis drafts to jf-private; templates, amounts, bank details, the 9-point read-back.
+      Settled decisions (do not reopen): Drive and local are both authoritative inputs; the printed-number check (R6) is cut; existing invoices keep their numbers; the plan runs without a worktree and without the sandbox (the Metis stage needs ssh).
+  acceptance:
+  - description: acceptance test test_next_number_takes_max_of_drive_and_local passes
+    verify: python3 -m pytest -q -p no:cacheprovider tests/test_invoice_numbering.py::test_next_number_takes_max_of_drive_and_local
+    baseline_expect: fail
+    baseline_observed: 'exit 1: AssertionError generate-invoice.py has no next_invoice_number() (2026-10-01)'
+  - description: acceptance test test_next_number_starts_new_year_at_001 passes
+    verify: python3 -m pytest -q -p no:cacheprovider tests/test_invoice_numbering.py::test_next_number_starts_new_year_at_001
+    baseline_expect: fail
+    baseline_observed: 'exit 1: AssertionError generate-invoice.py has no next_invoice_number() (2026-10-01)'
+  - description: acceptance test test_report_lists_one_sided_and_duplicate_numbers passes
+    verify: python3 -m pytest -q -p no:cacheprovider tests/test_invoice_numbering.py::test_report_lists_one_sided_and_duplicate_numbers
+    baseline_expect: fail
+    baseline_observed: 'exit 1: AssertionError generate-invoice.py has no invoice_number_report() (2026-10-01)'
+  - description: the real next number, from Drive and local, is at least 26036
+    verify: n=$(python3 scripts/generate-invoice.py --next-number 2>/dev/null) && [ "$n" -ge 26036 ]
+    baseline_expect: fail
+    baseline_observed: 'exit 2: argparse rejects --next-number (2026-10-01)'
+  - description: the real report names 26015 as a duplicate
+    verify: python3 scripts/generate-invoice.py --next-number 2>&1 >/dev/null | grep -q 26015
+    baseline_expect: fail
+    baseline_observed: 'exit 1: argparse error text, no 26015 (2026-10-01)'
+  - description: commands, rule and Metis handler take the number from --next-number
+    verify: grep -q -- --next-number rules/invoice-governance.md && grep -q -- --next-number commands/invoice.md
+      && grep -q -- --next-number commands/invoice-nipo.md && grep -q -- --next-number prompts/invoice-handler.md
+    baseline_expect: fail
+    baseline_observed: 'exit 1: flag absent from all four files (2026-10-01)'
+  - description: the local-folder-only numbering rule is gone
+    verify: '! grep -q ''maximum of trailing numbers'' rules/invoice-governance.md'
+    baseline_expect: fail
+    baseline_observed: 'exit 1: sentence present in the Numbering section (2026-10-01)'
+  - description: acceptance test test_regenerating_same_invoice_is_allowed passes
+    verify: python3 -m pytest -q -p no:cacheprovider tests/test_invoice_numbering.py::test_regenerating_same_invoice_is_allowed
+    baseline_expect: pass
+    baseline_observed: 'exit 0: 1 passed (2026-10-01)'
+  referee: true
+  outputs:
+    linear: JCC-6900
+- id: mac-sync-via-drive-api
+  title: '[Invoicing]: Upload invoices to Drive through the API on macOS'
+  status: pending
+  dispatch:
+    type: claude
+  depends_on: []
+  inputs:
+    brief: |
+      STAGE mac-sync-via-drive-api: Make the macOS invoice sync upload through the Drive API and stop reading the Drive for desktop folder.
+
+      You work in the git repo claude-setup/cc-sgept-backoffice (its own repo, remote
+      johannesfritz/cc-sgept-backoffice, branch main). Run every command from that repo root.
+      Background: on 2026-10-01 the CEO found two 2026 invoice numbers issued twice (26015 to the
+      Australian Permanent Mission and to Rocky Mountain Institute; 26012 to ANU and printed on the
+      Hinrich invoice), eight sent invoices missing from the Drive invoicing folder and three Drive
+      invoices missing locally. Root causes and the approved fix are in
+      ../../jf-ceo/sgept-backoffice/invoicing/261001-drive-reconciliation.md; the ruled requirements are
+      in plans/invoice-numbering-drive-requirements.md. Read both before starting.
+
+      Places:
+      - Local invoicing folder: the generator's module global OUTPUT_DIR
+        (jf-private/jf-ceo/sgept-backoffice/invoicing). Folder names end in " NNNNN", e.g.
+        "260911 GTA Interos Inc. 26033".
+      - Drive invoicing folder: id 19bPRghIb2L3cdxZzIattO65uM5En6dHM ("5 invoicing (Debitoren)"),
+        reached through the Drive API with the service account that scripts/gdrive_upload.py already
+        uses (impersonating johannes.fritz@sgept.org). Folder names also end in " NNNNN".
+      - Invoice numbers are five digits: two-digit year plus a three-digit sequence (26036).
+
+      Contract the acceptance tests rely on (tests/conftest.py, tests/test_invoice_numbering.py,
+      tests/test_drive_sync.py were written at planning time; they are the specification):
+      - scripts/generate-invoice.py reaches Drive only through the module gdrive_upload, imported at
+        call time (not bound at module import), so a test can replace sys.modules["gdrive_upload"].
+      - It reads the local folder through the module global OUTPUT_DIR at call time.
+      - gdrive_upload.list_invoice_folders() -> list[str] returns the names of all non-trashed folders
+        directly under the Drive invoicing folder (all pages).
+
+      Rules for this stage:
+      - Do not edit or weaken tests/conftest.py, tests/test_invoice_numbering.py or
+        tests/test_drive_sync.py. You may add new test files under tests/.
+      - Follow the code-quality contract (the cc-sgept-os rule code-quality.md and
+        to-backlog/references/code-quality.md): typed, documented public functions, no dead code,
+        explicit errors. End with the structured self-report.
+      - Add one entry to CHANGE-LOG.md at the repo root (create it if absent) in the same commit as the
+        change, then commit and push to origin main.
+      - Stamp every commit with the trailer "Agent: run-plan/invoice-numbering-drive/<stage-id>".
+      - Write caps for this run: at most 3 commits; no Linear writes; no emails sent.
+      - Deny boundary: never write to, rename in or delete from the real Drive invoicing folder or the
+        local invoicing folder (tests use fakes and temporary folders; real runs only read); never
+        renumber or edit an existing invoice; never touch 2025 numbers.
+      - Passes: write the passes below to plans/invoice-numbering-drive-passes/<stage-id>.json in the canonical shape
+        (id, category, description, steps, passes). Exercise each one, flip it to true and save the
+        file immediately after each flip, not in one batch. All passes true is required before DONE.
+
+      WHAT TO BUILD
+      1. scripts/gdrive_upload.py: sync_to_gdrive uses one API backend on every platform. Name it
+         _sync_api (the Linux function becomes it). Remove _sync_macos, the mount-path constants and
+         every read of the Drive for desktop folder from gdrive_upload.py and generate-invoice.py.
+         Folder reuse and stale-file replacement keep today's semantics (a folder ending in " NNNNN"
+         is reused; SGEPT-invoiceNNNNN.* inside it are replaced).
+      2. Add a unit test for _sync_api's folder reuse and file replacement against a fake Drive
+         service object (no network).
+      3. Update commands/invoice.md, commands/invoice-nipo.md, commands/invoice-gdrive-sync.md and
+         rules/invoice-governance.md so none describes copying into the Drive for desktop folder.
+      Why: on 2026-10-01 the Mac's Drive for desktop folder listed 6 of the 142 invoice folders and had
+      not changed since 2026-09-11, so the mount-based folder reuse could create duplicates.
+
+      PASSES (write to plans/invoice-numbering-drive-passes/mac-sync-via-drive-api.json, flip eagerly):
+      [
+        {
+          "id": 1,
+          "category": "integration",
+          "description": "on macOS the sync uploads through the API and never reads the Drive for desktop folder",
+          "steps": [
+            "Run the acceptance test test_mac_sync_uploads_through_api_not_mount",
+            "Search scripts/ for the mount path and confirm no read remains"
+          ],
+          "passes": false
+        },
+        {
+          "id": 2,
+          "category": "functional",
+          "description": "a re-sync reuses the Drive folder for the number and replaces the SGEPT-invoice files",
+          "steps": [
+            "Run the new _sync_api unit test against a fake Drive service",
+            "Confirm the existing folder is reused and the old files are deleted before upload"
+          ],
+          "passes": false
+        },
+        {
+          "id": 3,
+          "category": "integration",
+          "description": "the invoice docs describe the API upload",
+          "steps": [
+            "Read the sync sections of the three commands and the governance rule",
+            "Confirm none mentions the Drive for desktop folder"
+          ],
+          "passes": false
+        }
+      ]
+      DONE WHEN: On macOS, invoice uploads go through the Drive API and nothing reads the Drive for desktop folder.
+
+      === SCOPE FENCE: WHAT THIS SLICE DOES NOT OWN ===
+      Earlier stages: none; next-number-from-drive may run before you and adds list_invoice_folders to gdrive_upload.py, keep it.
+      Later stages own: upload_invoice_files for hand-made invoices (register-outside-invoice).
+      This slice owns: the sync backend in gdrive_upload.py, removal of mount constants, the _sync_api unit test and the four doc edits.
+      Out of scope per the plan: R6 printed-number check; renumbering or reissuing sent invoices; 2025 numbers; committing Metis drafts to jf-private; templates, amounts, bank details, the 9-point read-back.
+      Settled decisions (do not reopen): Drive and local are both authoritative inputs; the printed-number check (R6) is cut; existing invoices keep their numbers; the plan runs without a worktree and without the sandbox (the Metis stage needs ssh).
+  acceptance:
+  - description: acceptance test test_mac_sync_uploads_through_api_not_mount passes
+    verify: python3 -m pytest -q -p no:cacheprovider tests/test_drive_sync.py::test_mac_sync_uploads_through_api_not_mount
+    baseline_expect: fail
+    baseline_observed: 'exit 1: FileNotFoundError Google Drive mount not available (2026-10-01)'
+  - description: no script refers to the Drive for desktop folder any more
+    verify: '! grep -q CloudStorage scripts/gdrive_upload.py scripts/generate-invoice.py'
+    baseline_expect: fail
+    baseline_observed: 'exit 1: mount path present in both scripts (2026-10-01)'
+  - description: acceptance test test_regenerating_same_invoice_is_allowed passes
+    verify: python3 -m pytest -q -p no:cacheprovider tests/test_invoice_numbering.py::test_regenerating_same_invoice_is_allowed
+    baseline_expect: pass
+    baseline_observed: 'exit 0: 1 passed (2026-10-01)'
+  referee: true
+  outputs:
+    linear: JCC-6901
+- id: refuse-used-numbers
+  title: '[Invoicing]: Refuse to generate an invoice under a number already in use'
+  status: pending
+  dispatch:
+    type: claude
+  depends_on:
+  - next-number-from-drive
+  inputs:
+    brief: |
+      STAGE refuse-used-numbers: Make the generator refuse a number already used elsewhere while still allowing regeneration of the same invoice.
+
+      You work in the git repo claude-setup/cc-sgept-backoffice (its own repo, remote
+      johannesfritz/cc-sgept-backoffice, branch main). Run every command from that repo root.
+      Background: on 2026-10-01 the CEO found two 2026 invoice numbers issued twice (26015 to the
+      Australian Permanent Mission and to Rocky Mountain Institute; 26012 to ANU and printed on the
+      Hinrich invoice), eight sent invoices missing from the Drive invoicing folder and three Drive
+      invoices missing locally. Root causes and the approved fix are in
+      ../../jf-ceo/sgept-backoffice/invoicing/261001-drive-reconciliation.md; the ruled requirements are
+      in plans/invoice-numbering-drive-requirements.md. Read both before starting.
+
+      Places:
+      - Local invoicing folder: the generator's module global OUTPUT_DIR
+        (jf-private/jf-ceo/sgept-backoffice/invoicing). Folder names end in " NNNNN", e.g.
+        "260911 GTA Interos Inc. 26033".
+      - Drive invoicing folder: id 19bPRghIb2L3cdxZzIattO65uM5En6dHM ("5 invoicing (Debitoren)"),
+        reached through the Drive API with the service account that scripts/gdrive_upload.py already
+        uses (impersonating johannes.fritz@sgept.org). Folder names also end in " NNNNN".
+      - Invoice numbers are five digits: two-digit year plus a three-digit sequence (26036).
+
+      Contract the acceptance tests rely on (tests/conftest.py, tests/test_invoice_numbering.py,
+      tests/test_drive_sync.py were written at planning time; they are the specification):
+      - scripts/generate-invoice.py reaches Drive only through the module gdrive_upload, imported at
+        call time (not bound at module import), so a test can replace sys.modules["gdrive_upload"].
+      - It reads the local folder through the module global OUTPUT_DIR at call time.
+      - gdrive_upload.list_invoice_folders() -> list[str] returns the names of all non-trashed folders
+        directly under the Drive invoicing folder (all pages).
+
+      Rules for this stage:
+      - Do not edit or weaken tests/conftest.py, tests/test_invoice_numbering.py or
+        tests/test_drive_sync.py. You may add new test files under tests/.
+      - Follow the code-quality contract (the cc-sgept-os rule code-quality.md and
+        to-backlog/references/code-quality.md): typed, documented public functions, no dead code,
+        explicit errors. End with the structured self-report.
+      - Add one entry to CHANGE-LOG.md at the repo root (create it if absent) in the same commit as the
+        change, then commit and push to origin main.
+      - Stamp every commit with the trailer "Agent: run-plan/invoice-numbering-drive/<stage-id>".
+      - Write caps for this run: at most 3 commits; no Linear writes; no emails sent.
+      - Deny boundary: never write to, rename in or delete from the real Drive invoicing folder or the
+        local invoicing folder (tests use fakes and temporary folders; real runs only read); never
+        renumber or edit an existing invoice; never touch 2025 numbers.
+      - Passes: write the passes below to plans/invoice-numbering-drive-passes/<stage-id>.json in the canonical shape
+        (id, category, description, steps, passes). Exercise each one, flip it to true and save the
+        file immediately after each flip, not in one batch. All passes true is required before DONE.
+
+      WHAT TO BUILD
+      In generate-invoice.py, before anything is written, both generators (NIPO and standard, and
+      therefore generate_from_spec) raise ValueError naming the number and the conflicting folder when:
+      - a local folder other than this invoice's target folder ends with the number, or
+      - a Drive folder ends with the number while no local folder does (an invoice made elsewhere).
+      Regenerating into the same target folder stays allowed even when Drive has the number.
+      Expose the decision as number_in_use(number: str, target_folder: str | None = None) -> str | None
+      (None when free, otherwise a one-line reason). Reuse the folder listing built by
+      next-number-from-drive. Nothing may be written when the number is refused.
+
+      PASSES (write to plans/invoice-numbering-drive-passes/refuse-used-numbers.json, flip eagerly):
+      [
+        {
+          "id": 1,
+          "category": "error",
+          "description": "a number used by another local folder is refused and nothing is written",
+          "steps": [
+            "Run test_refuses_number_used_by_another_local_folder",
+            "Confirm the error names the number and the existing folder"
+          ],
+          "passes": false
+        },
+        {
+          "id": 2,
+          "category": "error",
+          "description": "a number present only on Drive is refused",
+          "steps": [
+            "Run test_refuses_number_present_only_on_drive"
+          ],
+          "passes": false
+        },
+        {
+          "id": 3,
+          "category": "functional",
+          "description": "regenerating the same invoice still works",
+          "steps": [
+            "Run test_regenerating_same_invoice_is_allowed"
+          ],
+          "passes": false
+        }
+      ]
+      DONE WHEN: The generator refuses any number used by another invoice, locally or on Drive, and still regenerates the same invoice.
+
+      === SCOPE FENCE: WHAT THIS SLICE DOES NOT OWN ===
+      Earlier stages: next-number-from-drive built list_invoice_folders, next_invoice_number and the report; reuse them, do not rewrite them.
+      Later stages own: register-outside-invoice reuses number_in_use for --register.
+      This slice owns: number_in_use and the refusal in both generators.
+      Out of scope per the plan: R6 printed-number check; renumbering or reissuing sent invoices; 2025 numbers; committing Metis drafts to jf-private; templates, amounts, bank details, the 9-point read-back.
+      Settled decisions (do not reopen): Drive and local are both authoritative inputs; the printed-number check (R6) is cut; existing invoices keep their numbers; the plan runs without a worktree and without the sandbox (the Metis stage needs ssh).
+  acceptance:
+  - description: acceptance test test_refuses_number_used_by_another_local_folder passes
+    verify: python3 -m pytest -q -p no:cacheprovider tests/test_invoice_numbering.py::test_refuses_number_used_by_another_local_folder
+    baseline_expect: fail
+    baseline_observed: 'exit 1: DID NOT RAISE ValueError (2026-10-01)'
+  - description: acceptance test test_refuses_number_present_only_on_drive passes
+    verify: python3 -m pytest -q -p no:cacheprovider tests/test_invoice_numbering.py::test_refuses_number_present_only_on_drive
+    baseline_expect: fail
+    baseline_observed: 'exit 1: DID NOT RAISE ValueError (2026-10-01)'
+  - description: acceptance test test_regenerating_same_invoice_is_allowed passes
+    verify: python3 -m pytest -q -p no:cacheprovider tests/test_invoice_numbering.py::test_regenerating_same_invoice_is_allowed
+    baseline_expect: pass
+    baseline_observed: 'exit 0: 1 passed (2026-10-01)'
+  referee: true
+  outputs:
+    linear: JCC-6902
+- id: register-outside-invoice
+  title: '[Invoicing]: File invoices made outside the generator locally and on Drive'
+  status: pending
+  dispatch:
+    type: claude
+  depends_on:
+  - refuse-used-numbers
+  - mac-sync-via-drive-api
+  inputs:
+    brief: |
+      STAGE register-outside-invoice: Add one command that files a hand-made or Metis-made invoice locally and on Drive under its number.
+
+      You work in the git repo claude-setup/cc-sgept-backoffice (its own repo, remote
+      johannesfritz/cc-sgept-backoffice, branch main). Run every command from that repo root.
+      Background: on 2026-10-01 the CEO found two 2026 invoice numbers issued twice (26015 to the
+      Australian Permanent Mission and to Rocky Mountain Institute; 26012 to ANU and printed on the
+      Hinrich invoice), eight sent invoices missing from the Drive invoicing folder and three Drive
+      invoices missing locally. Root causes and the approved fix are in
+      ../../jf-ceo/sgept-backoffice/invoicing/261001-drive-reconciliation.md; the ruled requirements are
+      in plans/invoice-numbering-drive-requirements.md. Read both before starting.
+
+      Places:
+      - Local invoicing folder: the generator's module global OUTPUT_DIR
+        (jf-private/jf-ceo/sgept-backoffice/invoicing). Folder names end in " NNNNN", e.g.
+        "260911 GTA Interos Inc. 26033".
+      - Drive invoicing folder: id 19bPRghIb2L3cdxZzIattO65uM5En6dHM ("5 invoicing (Debitoren)"),
+        reached through the Drive API with the service account that scripts/gdrive_upload.py already
+        uses (impersonating johannes.fritz@sgept.org). Folder names also end in " NNNNN".
+      - Invoice numbers are five digits: two-digit year plus a three-digit sequence (26036).
+
+      Contract the acceptance tests rely on (tests/conftest.py, tests/test_invoice_numbering.py,
+      tests/test_drive_sync.py were written at planning time; they are the specification):
+      - scripts/generate-invoice.py reaches Drive only through the module gdrive_upload, imported at
+        call time (not bound at module import), so a test can replace sys.modules["gdrive_upload"].
+      - It reads the local folder through the module global OUTPUT_DIR at call time.
+      - gdrive_upload.list_invoice_folders() -> list[str] returns the names of all non-trashed folders
+        directly under the Drive invoicing folder (all pages).
+
+      Rules for this stage:
+      - Do not edit or weaken tests/conftest.py, tests/test_invoice_numbering.py or
+        tests/test_drive_sync.py. You may add new test files under tests/.
+      - Follow the code-quality contract (the cc-sgept-os rule code-quality.md and
+        to-backlog/references/code-quality.md): typed, documented public functions, no dead code,
+        explicit errors. End with the structured self-report.
+      - Add one entry to CHANGE-LOG.md at the repo root (create it if absent) in the same commit as the
+        change, then commit and push to origin main.
+      - Stamp every commit with the trailer "Agent: run-plan/invoice-numbering-drive/<stage-id>".
+      - Write caps for this run: at most 3 commits; no Linear writes; no emails sent.
+      - Deny boundary: never write to, rename in or delete from the real Drive invoicing folder or the
+        local invoicing folder (tests use fakes and temporary folders; real runs only read); never
+        renumber or edit an existing invoice; never touch 2025 numbers.
+      - Passes: write the passes below to plans/invoice-numbering-drive-passes/<stage-id>.json in the canonical shape
+        (id, category, description, steps, passes). Exercise each one, flip it to true and save the
+        file immediately after each flip, not in one batch. All passes true is required before DONE.
+
+      WHAT TO BUILD
+      1. gdrive_upload.upload_invoice_files(inv_num: str, abbrev: str, is_nipo: bool, paths: list[Path])
+         -> str: through the API backend, reuse the Drive folder ending in " NNNNN" or create
+         "YYMMDD [NIPO ]ABBREV NNNNN", upload the given files under their own names, return the
+         folder URL.
+      2. generate-invoice.py: register_invoice(number: str, client: str, invoice_date: str,
+         files: list[Path], is_nipo: bool = False, sync: bool = True) -> Path. Refuse a used number
+         with ValueError (use number_in_use); create OUTPUT_DIR / "YYMMDD [NIPO ]<client> NNNNN" from
+         the invoice date; copy the files in under their own names; when sync is true call
+         gdrive_upload.upload_invoice_files(number, client, is_nipo, files). Nothing is written or
+         uploaded when the number is refused.
+      3. CLI: --register --number NNNNN --client NAME --date YYYY-MM-DD --file PATH [--file PATH]
+         [--nipo] [--no-sync]; prints the local folder and the Drive URL.
+      4. rules/invoice-governance.md: a short section on invoices made outside the generator that
+         says to file them with --register on the day they are sent.
+
+      PASSES (write to plans/invoice-numbering-drive-passes/register-outside-invoice.json, flip eagerly):
+      [
+        {
+          "id": 1,
+          "category": "functional",
+          "description": "--register files a hand-made PDF locally and uploads it to Drive",
+          "steps": [
+            "Run test_register_files_invoice_locally_and_uploads",
+            "Run python3 scripts/generate-invoice.py --help and confirm --register is documented"
+          ],
+          "passes": false
+        },
+        {
+          "id": 2,
+          "category": "error",
+          "description": "--register refuses a number already in use and uploads nothing",
+          "steps": [
+            "Run test_register_refuses_used_number"
+          ],
+          "passes": false
+        },
+        {
+          "id": 3,
+          "category": "integration",
+          "description": "the governance rule tells people when to use --register",
+          "steps": [
+            "Read rules/invoice-governance.md and confirm the section names --register"
+          ],
+          "passes": false
+        }
+      ]
+      DONE WHEN: One --register command files an invoice made outside the generator locally and on Drive, and refuses a used number.
+
+      === SCOPE FENCE: WHAT THIS SLICE DOES NOT OWN ===
+      Earlier stages: refuse-used-numbers built number_in_use; mac-sync-via-drive-api built _sync_api. Reuse both.
+      Later stages own: the ledger export (invoice-register-export) and the Metis job (weekly-check-on-metis).
+      This slice owns: upload_invoice_files, register_invoice, the --register CLI and the rule section.
+      Out of scope per the plan: R6 printed-number check; renumbering or reissuing sent invoices; 2025 numbers; committing Metis drafts to jf-private; templates, amounts, bank details, the 9-point read-back.
+      Settled decisions (do not reopen): Drive and local are both authoritative inputs; the printed-number check (R6) is cut; existing invoices keep their numbers; the plan runs without a worktree and without the sandbox (the Metis stage needs ssh).
+  acceptance:
+  - description: acceptance test test_register_files_invoice_locally_and_uploads passes
+    verify: python3 -m pytest -q -p no:cacheprovider tests/test_invoice_numbering.py::test_register_files_invoice_locally_and_uploads
+    baseline_expect: fail
+    baseline_observed: 'exit 1: AssertionError generate-invoice.py has no register_invoice() (2026-10-01)'
+  - description: acceptance test test_register_refuses_used_number passes
+    verify: python3 -m pytest -q -p no:cacheprovider tests/test_invoice_numbering.py::test_register_refuses_used_number
+    baseline_expect: fail
+    baseline_observed: 'exit 1: AssertionError generate-invoice.py has no register_invoice() (2026-10-01)'
+  - description: the CLI offers --register
+    verify: python3 scripts/generate-invoice.py --help | grep -q -- --register
+    baseline_expect: fail
+    baseline_observed: 'exit 1: help lists only --spec-file and --no-sync (2026-10-01)'
+  - description: the governance rule documents --register
+    verify: grep -q -- --register rules/invoice-governance.md
+    baseline_expect: fail
+    baseline_observed: 'exit 1: not mentioned (2026-10-01)'
+  - description: acceptance test test_regenerating_same_invoice_is_allowed passes
+    verify: python3 -m pytest -q -p no:cacheprovider tests/test_invoice_numbering.py::test_regenerating_same_invoice_is_allowed
+    baseline_expect: pass
+    baseline_observed: 'exit 0: 1 passed (2026-10-01)'
+  referee: true
+  outputs:
+    linear: JCC-6904
+- id: invoice-register-export
+  title: '[Invoicing]: Export a ledger of invoice numbers across Drive and local folders'
+  status: pending
+  dispatch:
+    type: claude
+  depends_on:
+  - next-number-from-drive
+  inputs:
+    brief: |
+      STAGE invoice-register-export: Add a ledger export listing every number of a year with its Drive and local status.
+
+      You work in the git repo claude-setup/cc-sgept-backoffice (its own repo, remote
+      johannesfritz/cc-sgept-backoffice, branch main). Run every command from that repo root.
+      Background: on 2026-10-01 the CEO found two 2026 invoice numbers issued twice (26015 to the
+      Australian Permanent Mission and to Rocky Mountain Institute; 26012 to ANU and printed on the
+      Hinrich invoice), eight sent invoices missing from the Drive invoicing folder and three Drive
+      invoices missing locally. Root causes and the approved fix are in
+      ../../jf-ceo/sgept-backoffice/invoicing/261001-drive-reconciliation.md; the ruled requirements are
+      in plans/invoice-numbering-drive-requirements.md. Read both before starting.
+
+      Places:
+      - Local invoicing folder: the generator's module global OUTPUT_DIR
+        (jf-private/jf-ceo/sgept-backoffice/invoicing). Folder names end in " NNNNN", e.g.
+        "260911 GTA Interos Inc. 26033".
+      - Drive invoicing folder: id 19bPRghIb2L3cdxZzIattO65uM5En6dHM ("5 invoicing (Debitoren)"),
+        reached through the Drive API with the service account that scripts/gdrive_upload.py already
+        uses (impersonating johannes.fritz@sgept.org). Folder names also end in " NNNNN".
+      - Invoice numbers are five digits: two-digit year plus a three-digit sequence (26036).
+
+      Contract the acceptance tests rely on (tests/conftest.py, tests/test_invoice_numbering.py,
+      tests/test_drive_sync.py were written at planning time; they are the specification):
+      - scripts/generate-invoice.py reaches Drive only through the module gdrive_upload, imported at
+        call time (not bound at module import), so a test can replace sys.modules["gdrive_upload"].
+      - It reads the local folder through the module global OUTPUT_DIR at call time.
+      - gdrive_upload.list_invoice_folders() -> list[str] returns the names of all non-trashed folders
+        directly under the Drive invoicing folder (all pages).
+
+      Rules for this stage:
+      - Do not edit or weaken tests/conftest.py, tests/test_invoice_numbering.py or
+        tests/test_drive_sync.py. You may add new test files under tests/.
+      - Follow the code-quality contract (the cc-sgept-os rule code-quality.md and
+        to-backlog/references/code-quality.md): typed, documented public functions, no dead code,
+        explicit errors. End with the structured self-report.
+      - Add one entry to CHANGE-LOG.md at the repo root (create it if absent) in the same commit as the
+        change, then commit and push to origin main.
+      - Stamp every commit with the trailer "Agent: run-plan/invoice-numbering-drive/<stage-id>".
+      - Write caps for this run: at most 3 commits; no Linear writes; no emails sent.
+      - Deny boundary: never write to, rename in or delete from the real Drive invoicing folder or the
+        local invoicing folder (tests use fakes and temporary folders; real runs only read); never
+        renumber or edit an existing invoice; never touch 2025 numbers.
+      - Passes: write the passes below to plans/invoice-numbering-drive-passes/<stage-id>.json in the canonical shape
+        (id, category, description, steps, passes). Exercise each one, flip it to true and save the
+        file immediately after each flip, not in one batch. All passes true is required before DONE.
+
+      WHAT TO BUILD
+      1. generate-invoice.py: invoice_ledger(year: int | None = None) -> list[dict], sorted by number,
+         one row per number found on either side: {"number", "status", "local_folders",
+         "drive_folders"}; status is "duplicate" when either side has more than one folder for the
+         number, otherwise "both", "drive_only" or "local_only". Build invoice_number_report on top
+         of it if that removes duplicated logic.
+      2. CLI: --ledger [--year YY] --out PATH writes CSV with header
+         number,status,local_folders,drive_folders (several folders joined by " | ").
+      Today the 2026 ledger has 35 numbers, 26001 to 26035, all "both" except 26015 "duplicate".
+      This is the list the bookkeeper (Kropf Treuhand) can be sent instead of email rounds.
+
+      PASSES (write to plans/invoice-numbering-drive-passes/invoice-register-export.json, flip eagerly):
+      [
+        {
+          "id": 1,
+          "category": "functional",
+          "description": "--ledger writes one CSV row per number with its status",
+          "steps": [
+            "Run test_ledger_classifies_numbers",
+            "Run python3 scripts/generate-invoice.py --ledger --year 26 --out <tmp file> and read it"
+          ],
+          "passes": false
+        },
+        {
+          "id": 2,
+          "category": "functional",
+          "description": "today's 2026 ledger shows 26001 to 26035 with only 26015 flagged",
+          "steps": [
+            "Count rows with status both or duplicate; expect 35",
+            "Confirm 26015 is the only duplicate and no row is one-sided"
+          ],
+          "passes": false
+        }
+      ]
+      DONE WHEN: --ledger writes a CSV of every number of a year with status both, drive_only, local_only or duplicate.
+
+      === SCOPE FENCE: WHAT THIS SLICE DOES NOT OWN ===
+      Earlier stages: next-number-from-drive built the folder listing and invoice_number_report; reuse them.
+      Later stages own: the weekly Metis job that runs this export (weekly-check-on-metis).
+      This slice owns: invoice_ledger and the --ledger CLI.
+      Out of scope per the plan: R6 printed-number check; renumbering or reissuing sent invoices; 2025 numbers; committing Metis drafts to jf-private; templates, amounts, bank details, the 9-point read-back. Sending the ledger to the bookkeeper.
+      Settled decisions (do not reopen): Drive and local are both authoritative inputs; the printed-number check (R6) is cut; existing invoices keep their numbers; the plan runs without a worktree and without the sandbox (the Metis stage needs ssh).
+  acceptance:
+  - description: acceptance test test_ledger_classifies_numbers passes
+    verify: python3 -m pytest -q -p no:cacheprovider tests/test_invoice_numbering.py::test_ledger_classifies_numbers
+    baseline_expect: fail
+    baseline_observed: 'exit 1: AssertionError generate-invoice.py has no invoice_ledger() (2026-10-01)'
+  - description: the real 2026 ledger lists at least 35 numbers present on both sides
+    verify: f=$(mktemp) && python3 scripts/generate-invoice.py --ledger --year 26 --out "$f" && [ "$(grep
+      -cE '^26[0-9]{3},(both|duplicate),' "$f")" -ge 35 ]
+    baseline_expect: fail
+    baseline_observed: 'exit 2: argparse rejects --ledger (2026-10-01)'
+  - description: acceptance test test_regenerating_same_invoice_is_allowed passes
+    verify: python3 -m pytest -q -p no:cacheprovider tests/test_invoice_numbering.py::test_regenerating_same_invoice_is_allowed
+    baseline_expect: pass
+    baseline_observed: 'exit 0: 1 passed (2026-10-01)'
+  referee: true
+  outputs:
+    linear: JCC-6903
+- id: weekly-check-on-metis
+  title: '[Metis]: Run the invoice number check weekly and email Johannes on findings'
+  status: pending
+  dispatch:
+    type: claude
+  depends_on:
+  - invoice-register-export
+  inputs:
+    brief: |
+      STAGE weekly-check-on-metis: Schedule a weekly invoice number check on Metis that emails Johannes only when it finds something.
+
+      You work in the git repo claude-setup/cc-sgept-backoffice (its own repo, remote
+      johannesfritz/cc-sgept-backoffice, branch main). Run every command from that repo root.
+      Background: on 2026-10-01 the CEO found two 2026 invoice numbers issued twice (26015 to the
+      Australian Permanent Mission and to Rocky Mountain Institute; 26012 to ANU and printed on the
+      Hinrich invoice), eight sent invoices missing from the Drive invoicing folder and three Drive
+      invoices missing locally. Root causes and the approved fix are in
+      ../../jf-ceo/sgept-backoffice/invoicing/261001-drive-reconciliation.md; the ruled requirements are
+      in plans/invoice-numbering-drive-requirements.md. Read both before starting.
+
+      Places:
+      - Local invoicing folder: the generator's module global OUTPUT_DIR
+        (jf-private/jf-ceo/sgept-backoffice/invoicing). Folder names end in " NNNNN", e.g.
+        "260911 GTA Interos Inc. 26033".
+      - Drive invoicing folder: id 19bPRghIb2L3cdxZzIattO65uM5En6dHM ("5 invoicing (Debitoren)"),
+        reached through the Drive API with the service account that scripts/gdrive_upload.py already
+        uses (impersonating johannes.fritz@sgept.org). Folder names also end in " NNNNN".
+      - Invoice numbers are five digits: two-digit year plus a three-digit sequence (26036).
+
+      Contract the acceptance tests rely on (tests/conftest.py, tests/test_invoice_numbering.py,
+      tests/test_drive_sync.py were written at planning time; they are the specification):
+      - scripts/generate-invoice.py reaches Drive only through the module gdrive_upload, imported at
+        call time (not bound at module import), so a test can replace sys.modules["gdrive_upload"].
+      - It reads the local folder through the module global OUTPUT_DIR at call time.
+      - gdrive_upload.list_invoice_folders() -> list[str] returns the names of all non-trashed folders
+        directly under the Drive invoicing folder (all pages).
+
+      Rules for this stage:
+      - Do not edit or weaken tests/conftest.py, tests/test_invoice_numbering.py or
+        tests/test_drive_sync.py. You may add new test files under tests/.
+      - Follow the code-quality contract (the cc-sgept-os rule code-quality.md and
+        to-backlog/references/code-quality.md): typed, documented public functions, no dead code,
+        explicit errors. End with the structured self-report.
+      - Add one entry to CHANGE-LOG.md at the repo root (create it if absent) in the same commit as the
+        change, then commit and push to origin main.
+      - Stamp every commit with the trailer "Agent: run-plan/invoice-numbering-drive/<stage-id>".
+      - Write caps for this run: at most 3 commits; no Linear writes; no emails sent.
+      - Deny boundary: never write to, rename in or delete from the real Drive invoicing folder or the
+        local invoicing folder (tests use fakes and temporary folders; real runs only read); never
+        renumber or edit an existing invoice; never touch 2025 numbers.
+      - Passes: write the passes below to plans/invoice-numbering-drive-passes/<stage-id>.json in the canonical shape
+        (id, category, description, steps, passes). Exercise each one, flip it to true and save the
+        file immediately after each flip, not in one batch. All passes true is required before DONE.
+
+      WHAT TO BUILD
+      This stage also works in the jf-metis repo (../../jf-metis) and on the Metis server
+      (deploy@204.168.141.21, ssh works non-interactively from this Mac).
+      1. Deploy: on the server, git pull --ff-only the checkouts /home/deploy/jf-private and
+         /home/deploy/jf-private/claude-setup/cc-sgept-backoffice so the server has --next-number and
+         --ledger.
+      2. A weekly job tagged invoice-number-check (the tag must appear on its crontab line), built to
+         the existing jf-metis cron conventions (read ../../jf-metis/CLAUDE.md and
+         documentation/cron-manifest.md first; follow its wrapper, logging and alert patterns). It:
+         pulls both server checkouts (a failed pull is itself a finding), runs --ledger for the
+         current year, and emails Johannes through the existing Metis mail path only when a row is
+         not "both" or the pull failed. With no findings it sends nothing. It supports --dry-run,
+         which prints the email it would send instead of sending it.
+      3. Record the job in documentation/cron-manifest.md and in the fleet list the manifest points
+         to, and add a jf-metis CHANGE-LOG.md entry. Commit and push jf-metis; install the crontab
+         line on the server the way the manifest prescribes.
+      Expected today: no findings, because Drive and local were reconciled on 2026-10-01 (26015 is a
+      known duplicate: report it once in the email body as known, do not treat it as new).
+
+      PASSES (write to plans/invoice-numbering-drive-passes/weekly-check-on-metis.json, flip eagerly):
+      [
+        {
+          "id": 1,
+          "category": "integration",
+          "description": "the server runs the new numbering code",
+          "steps": [
+            "Run --next-number on the server over ssh",
+            "Confirm it prints the same number as on this Mac"
+          ],
+          "passes": false
+        },
+        {
+          "id": 2,
+          "category": "integration",
+          "description": "the Metis crontab carries a weekly job tagged invoice-number-check",
+          "steps": [
+            "Run crontab -l on the server",
+            "Confirm one weekly line carries the tag"
+          ],
+          "passes": false
+        },
+        {
+          "id": 3,
+          "category": "functional",
+          "description": "the dry run prints the email it would send and sends nothing when clean",
+          "steps": [
+            "Run the job with --dry-run on the server",
+            "Confirm it reports the known 26015 duplicate and no new findings"
+          ],
+          "passes": false
+        },
+        {
+          "id": 4,
+          "category": "state",
+          "description": "a failed pull is reported as a finding",
+          "steps": [
+            "Run the job's dry run with the pull forced to fail (for example a bad remote in a temporary copy)",
+            "Confirm the dry-run email names the pull failure"
+          ],
+          "passes": false
+        },
+        {
+          "id": 5,
+          "category": "integration",
+          "description": "the job is recorded in the Metis cron manifest",
+          "steps": [
+            "Read documentation/cron-manifest.md in jf-metis and confirm the entry"
+          ],
+          "passes": false
+        }
+      ]
+      DONE WHEN: Metis runs the invoice number check weekly and emails Johannes only when a number is one-sided or duplicated anew.
+
+      === SCOPE FENCE: WHAT THIS SLICE DOES NOT OWN ===
+      Earlier stages: all earlier stages built --next-number and --ledger; do not change generate-invoice.py except to fix a bug that blocks the job, and say so in the self-report.
+      Later stages own: nothing; this is the last slice.
+      This slice owns: the server deployment, the weekly job, its crontab line and manifest entries.
+      Out of scope per the plan: R6 printed-number check; renumbering or reissuing sent invoices; 2025 numbers; committing Metis drafts to jf-private; templates, amounts, bank details, the 9-point read-back. Changing other Metis jobs.
+      Settled decisions (do not reopen): Drive and local are both authoritative inputs; the printed-number check (R6) is cut; existing invoices keep their numbers; the plan runs without a worktree and without the sandbox (the Metis stage needs ssh).
+  acceptance:
+  - description: the server has the new numbering code
+    verify: n=$(ssh -o BatchMode=yes -o ConnectTimeout=10 deploy@204.168.141.21 'python3 /home/deploy/jf-private/claude-setup/cc-sgept-backoffice/scripts/generate-invoice.py
+      --next-number 2>/dev/null') && echo "$n" | grep -qxE '2[0-9]{4}'
+    baseline_expect: fail
+    baseline_observed: 'exit 1: server argparse rejects --next-number (2026-10-01)'
+  - description: the Metis crontab carries the weekly job
+    verify: ssh -o BatchMode=yes -o ConnectTimeout=10 deploy@204.168.141.21 'crontab -l' | grep -q invoice-number-check
+    baseline_expect: fail
+    baseline_observed: 'exit 1: no such crontab line (2026-10-01)'
+  - description: the job is recorded in the Metis cron manifest
+    verify: grep -q invoice-number-check ../../jf-metis/documentation/cron-manifest.md
+    baseline_expect: fail
+    baseline_observed: 'exit 1: not in the manifest (2026-10-01)'
+  outputs:
+    linear: JCC-6905
