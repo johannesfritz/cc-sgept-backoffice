@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "category": "integration",
+    "description": "on macOS the sync uploads through the API and never reads the Drive for desktop folder",
+    "steps": [
+      "Run the acceptance test test_mac_sync_uploads_through_api_not_mount",
+      "Search scripts/ for the mount path and confirm no read remains"
+    ],
+    "passes": true
+  },
+  {
+    "id": 2,
+    "category": "functional",
+    "description": "a re-sync reuses the Drive folder for the number and replaces the SGEPT-invoice files",
+    "steps": [
+      "Run the new _sync_api unit test against a fake Drive service",
+      "Confirm the existing folder is reused and the old files are deleted before upload"
+    ],
+    "passes": true
+  },
+  {
+    "id": 3,
+    "category": "integration",
+    "description": "the invoice docs describe the API upload",
+    "steps": [
+      "Read the sync sections of the three commands and the governance rule",
+      "Confirm none mentions the Drive for desktop folder"
+    ],
+    "passes": true
+  }
+]

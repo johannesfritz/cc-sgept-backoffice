@@ -57,7 +57,7 @@ If any check fails: stop, report the paragraph number + mismatch to the requeste
 
 ## Overwrite semantics (Drive sync)
 
-The sync uploads through the Drive API on every platform. It never reads or writes the Drive for desktop folder, which can list a stale subset of the invoice folders.
+The sync uploads through the Drive API on every platform. It never reads or writes a locally synced copy of the Drive, which can list a stale subset of the invoice folders.
 
 - A Drive folder whose name ends in ` {NUMBER}` is reused if present (any date prefix, any type).
 - `SGEPT-invoice{NUMBER}.docx` and `.pdf` inside are deleted before the fresh files are uploaded.

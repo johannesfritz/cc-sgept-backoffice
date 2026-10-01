@@ -12,3 +12,4 @@
 - `scripts/generate-invoice.py`: the Drive for desktop path constants are removed.
 - `tests/test_sync_api.py`: unit test for folder reuse and file replacement against a fake Drive service.
 - `commands/invoice.md`, `commands/invoice-nipo.md`, `commands/invoice-gdrive-sync.md`, `rules/invoice-governance.md`: describe the API upload.
+- `rules/invoice-governance.md`: wording follow-up so no sync doc names the Drive for desktop folder.
