@@ -1,5 +1,10 @@
 # Change log
 
+## 2026-10-01: Remove the retired Drive mount stub and its docs (plan invoice-numbering-drive, follow-up)
+
+- `scripts/gdrive_upload.py`: delete the unused `GDRIVE_INVOICING_MAC = None`. `tests/test_drive_sync.py` now patches it with `raising=False`, so the test still proves the Mac sync goes through the API.
+- `README.md`, `install.sh`: drop the `SGEPT_GDRIVE_INVOICING` mount override and the stale `INVOICE_OUTPUT_DIR` mention; Drive access is the API on every platform.
+
 ## 2026-10-01: Weekly invoice number check on Metis (plan invoice-numbering-drive, stage weekly-check-on-metis)
 
 - No change to `scripts/generate-invoice.py`. Metis (jf-metis commit 6be1505f) now runs `--ledger` every Monday 06:30 UTC under the crontab tag `invoice-number-check` and mails the CEO only when a number is one-sided or newly duplicated, or a pull fails. Both server checkouts are current.

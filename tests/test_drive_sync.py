@@ -12,7 +12,7 @@ from conftest import load_script
 def test_mac_sync_uploads_through_api_not_mount(tmp_path, monkeypatch):
     gdrive = load_script("gdrive_upload_under_test", "gdrive_upload.py")
     monkeypatch.setattr(sys, "platform", "darwin")
-    monkeypatch.setattr(gdrive, "GDRIVE_INVOICING_MAC", tmp_path / "no-such-mount")
+    monkeypatch.setattr(gdrive, "GDRIVE_INVOICING_MAC", tmp_path / "no-such-mount", raising=False)
     calls = []
 
     def fake_api(docx_path, pdf_path, inv_num, abbrev, is_nipo):

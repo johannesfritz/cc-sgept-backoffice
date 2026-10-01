@@ -7,11 +7,11 @@ SGEPT back-office capabilities: invoice generation (NIPO + standard), templates,
 This repo is the **back-office automation engine** for SGEPT invoicing. Dependencies:
 
 - **(required)** Python + python-docx + Pillow + (macOS: docx2pdf + Word, Linux: libreoffice) for invoice rendering
-- **(required)** Google Drive access — either the macOS Drive File Stream mount (canonical jf-private layout via SGEPT_GDRIVE_INVOICING env var, defaults to `~/Library/CloudStorage/...`) OR the Google Drive API via `mcp-google-workspace/service-account.json` on Linux
+- **(required)** Google Drive access through the Drive API with `mcp-google-workspace/service-account.json`, on macOS and Linux alike. The Drive for desktop folder is not used.
 - **(required)** SGEPT bank account config + NIPO Stripe link config (in `config/` directory)
-- **(optional companion)** cc-os — provides session-tracking, `/handoff`. Invoice flows work without cc-os.
+- **(optional companion)** cc-os: provides session-tracking, `/handoff`. Invoice flows work without cc-os.
 
-The repo IS structurally tied to the canonical jf-private layout: invoice folders land at `jf-ceo/sgept-backoffice/invoicing/YYMMDD [Descriptor] {NUMBER}/`, the sequential-numbering rule scans that path, and the symlink targets in /jf-ceo/sgept-backoffice/ are the canonical work directory. Standalone consumers would need to provide an equivalent target tree and override `SGEPT_GDRIVE_INVOICING`.
+The repo IS structurally tied to the canonical jf-private layout: invoice folders land at `jf-ceo/sgept-backoffice/invoicing/YYMMDD [Descriptor] {NUMBER}/`, `generate-invoice.py --next-number` reads that path and the Drive invoicing folder, and the symlink targets in /jf-ceo/sgept-backoffice/ are the canonical work directory. Standalone consumers would need to provide an equivalent target tree.
 
 ## Contents
 
@@ -20,7 +20,7 @@ The repo IS structurally tied to the canonical jf-private layout: invoice folder
 | `agents/` | Back-office agent definitions (future) |
 | `commands/` | Slash commands (`/invoice`, `/invoice-nipo`, `/invoice-gdrive-sync`) symlinked into `jf-ceo/.claude/commands/` |
 | `prompts/` | Prompt fragments consumed by the CoS inbox loop (`invoice-handler.md`) |
-| `scripts/` | `generate-invoice.py`, `pdf_convert.py`, `gdrive_upload.py` — cross-platform (macOS + Linux) |
+| `scripts/` | `generate-invoice.py`, `pdf_convert.py`, `gdrive_upload.py`, cross-platform (macOS + Linux) |
 | `templates/invoices/` | SGEPT invoice `.docx` templates (NIPO regular/academic_library/academic_student, standard) |
 | `config/` | `bank-accounts.json`, `nipo-stripe-links.json` |
 | `knowledge/` | Spec schemas, field reference docs |

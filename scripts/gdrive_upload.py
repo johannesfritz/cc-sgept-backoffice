@@ -22,10 +22,6 @@ from pathlib import Path
 
 GDRIVE_FOLDER_ID_ROOT = "19bPRghIb2L3cdxZzIattO65uM5En6dHM"
 
-# Retired mount setting. Nothing reads it; the name stays because
-# tests/test_drive_sync.py patches it with monkeypatch.setattr, which needs it to exist.
-GDRIVE_INVOICING_MAC: Path | None = None
-
 # The mcp-google-workspace service account credential.
 _SCRIPT_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _SCRIPT_DIR.parent
