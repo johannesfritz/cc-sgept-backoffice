@@ -1,5 +1,10 @@
 # Change log
 
+## 2026-10-01: Weekly invoice number check on Metis (plan invoice-numbering-drive, stage weekly-check-on-metis)
+
+- No change to `scripts/generate-invoice.py`. Metis (jf-metis commit 6be1505f) now runs `--ledger` every Monday 06:30 UTC under the crontab tag `invoice-number-check` and mails the CEO only when a number is one-sided or newly duplicated, or a pull fails. Both server checkouts are current.
+- Passes: `plans/invoice-numbering-drive-passes/weekly-check-on-metis.json`.
+
 ## 2026-10-01: Invoice ledger export (plan invoice-numbering-drive, stage invoice-register-export)
 
 - `scripts/generate-invoice.py`: add `invoice_ledger()`, `write_ledger_csv()` and the `--ledger [--year YY] --out PATH` flags. The CSV has one row per number with status `both`, `drive_only`, `local_only` or `duplicate`.

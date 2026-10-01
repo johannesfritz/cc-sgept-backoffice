@@ -1,0 +1,51 @@
+[
+  {
+    "id": 1,
+    "category": "integration",
+    "description": "the server runs the new numbering code",
+    "steps": [
+      "Run --next-number on the server over ssh",
+      "Confirm it prints the same number as on this Mac"
+    ],
+    "passes": true
+  },
+  {
+    "id": 2,
+    "category": "integration",
+    "description": "the Metis crontab carries a weekly job tagged invoice-number-check",
+    "steps": [
+      "Run crontab -l on the server",
+      "Confirm one weekly line carries the tag"
+    ],
+    "passes": true
+  },
+  {
+    "id": 3,
+    "category": "functional",
+    "description": "the dry run prints the email it would send and sends nothing when clean",
+    "steps": [
+      "Run the job with --dry-run on the server",
+      "Confirm it reports the known 26015 duplicate and no new findings"
+    ],
+    "passes": true
+  },
+  {
+    "id": 4,
+    "category": "state",
+    "description": "a failed pull is reported as a finding",
+    "steps": [
+      "Run the job's dry run with the pull forced to fail (for example a bad remote in a temporary copy)",
+      "Confirm the dry-run email names the pull failure"
+    ],
+    "passes": true
+  },
+  {
+    "id": 5,
+    "category": "integration",
+    "description": "the job is recorded in the Metis cron manifest",
+    "steps": [
+      "Read documentation/cron-manifest.md in jf-metis and confirm the entry"
+    ],
+    "passes": true
+  }
+]
