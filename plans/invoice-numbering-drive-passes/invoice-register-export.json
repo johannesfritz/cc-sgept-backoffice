@@ -1,0 +1,22 @@
+[
+  {
+    "id": 1,
+    "category": "functional",
+    "description": "--ledger writes one CSV row per number with its status",
+    "steps": [
+      "Run test_ledger_classifies_numbers",
+      "Run python3 scripts/generate-invoice.py --ledger --year 26 --out <tmp file> and read it"
+    ],
+    "passes": true
+  },
+  {
+    "id": 2,
+    "category": "functional",
+    "description": "today's 2026 ledger shows 26001 to 26035 with only 26015 flagged",
+    "steps": [
+      "Count rows with status both or duplicate; expect 35",
+      "Confirm 26015 is the only duplicate and no row is one-sided"
+    ],
+    "passes": true
+  }
+]

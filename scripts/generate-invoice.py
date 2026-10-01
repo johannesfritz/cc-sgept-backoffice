@@ -4,6 +4,7 @@ SGEPT Invoice Generator
 Generates invoices by copying templates and replacing content via XML manipulation.
 """
 
+import csv
 import json
 import os
 import re
@@ -824,6 +825,39 @@ def invoice_number_report(year: int | None = None) -> dict:
     }
 
 
+def invoice_ledger(year: int | None = None) -> list[dict]:
+    """List every invoice number of a year with its Drive and local status.
+
+    Returns one row per number found on either side, sorted by number:
+    {"number", "status", "local_folders", "drive_folders"}. Status is "duplicate"
+    when either side has more than one folder for the number, otherwise "both",
+    "drive_only" or "local_only".
+    """
+    local, drive, _ = _numbers_by_side(year)
+    rows = []
+    for number in sorted(set(local) | set(drive)):
+        local_folders, drive_folders = local.get(number, []), drive.get(number, [])
+        if len(local_folders) > 1 or len(drive_folders) > 1:
+            status = "duplicate"
+        elif local_folders and drive_folders:
+            status = "both"
+        else:
+            status = "local_only" if local_folders else "drive_only"
+        rows.append({"number": number, "status": status,
+                     "local_folders": local_folders, "drive_folders": drive_folders})
+    return rows
+
+
+def write_ledger_csv(rows: list[dict], out: Path) -> None:
+    """Write invoice_ledger rows to a CSV file; several folders are joined by " | "."""
+    with open(out, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(["number", "status", "local_folders", "drive_folders"])
+        for row in rows:
+            writer.writerow([row["number"], row["status"],
+                             " | ".join(row["local_folders"]), " | ".join(row["drive_folders"])])
+
+
 def _print_number_report(report: dict) -> None:
     """Write the findings of invoice_number_report to stderr."""
     print(f"Drive only (no local copy): {', '.join(report['drive_only']) or 'none'}", file=sys.stderr)
@@ -843,7 +877,11 @@ def _cli():
                     help="Print the next free invoice number (max of Drive and local, plus 1); "
                          "report one-sided and duplicate numbers on stderr.")
     ap.add_argument('--year', type=int, metavar='YY',
-                    help="Two-digit year for --next-number (default: current year).")
+                    help="Two-digit year for --next-number and --ledger (default: current year).")
+    ap.add_argument('--ledger', action='store_true',
+                    help="Write a CSV of every invoice number of the year with its Drive and "
+                         "local status (needs --out).")
+    ap.add_argument('--out', type=Path, help="CSV path for --ledger.")
     ap.add_argument('--register', action='store_true',
                     help="File an invoice made outside the generator locally and on Drive "
                          "(needs --number, --client, --date and --file).")
@@ -865,6 +903,13 @@ def _cli():
         except ValueError as err:
             ap.exit(1, f"Refused: {err}\n")
         print(f"INVOICE_OUTPUT: {folder}")
+        return
+
+    if args.ledger:
+        if not args.out:
+            ap.error("--ledger needs --out")
+        write_ledger_csv(invoice_ledger(args.year), args.out)
+        print(f"LEDGER_OUTPUT: {args.out}")
         return
 
     if args.next_number:

@@ -1,5 +1,9 @@
 # Change log
 
+## 2026-10-01: Invoice ledger export (plan invoice-numbering-drive, stage invoice-register-export)
+
+- `scripts/generate-invoice.py`: add `invoice_ledger()`, `write_ledger_csv()` and the `--ledger [--year YY] --out PATH` flags. The CSV has one row per number with status `both`, `drive_only`, `local_only` or `duplicate`.
+
 ## 2026-10-01: Register invoices made outside the generator (plan invoice-numbering-drive, stage register-outside-invoice)
 
 - `scripts/gdrive_upload.py`: add `upload_invoice_files()`; `_open_drive()` and `_reuse_or_create_folder()` are extracted from `_sync_api` and shared.
