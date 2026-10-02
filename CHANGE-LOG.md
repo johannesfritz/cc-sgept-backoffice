@@ -1,5 +1,9 @@
 # Change log
 
+## 2026-10-02: Make the manifest pass `claude plugin validate` (plugin-circles)
+
+`plugin.json` no longer declares `agents` as a directory string, which Claude Code rejects, and the repo has no `agents/` folder. Version 0.1.1.
+
 ## 2026-10-01: Remove the retired Drive mount stub and its docs (plan invoice-numbering-drive, follow-up)
 
 - `scripts/gdrive_upload.py`: delete the unused `GDRIVE_INVOICING_MAC = None`. `tests/test_drive_sync.py` now patches it with `raising=False`, so the test still proves the Mac sync goes through the API.
