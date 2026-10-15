@@ -36,5 +36,5 @@ for f in "$PLUGIN_ROOT/prompts/"*.md;  do link_rel "$f" "$CLAUDE_DIR/prompts/$(b
 for f in "$PLUGIN_ROOT/rules/"*.md;    do link_rel "$f" "$CLAUDE_DIR/rules/$(basename "$f")";    echo "  rule:     $(basename "$f")"; done
 
 echo ""
-echo "Install complete. Restart Claude Code (or /init); /invoice, /invoice-nipo, /invoice-gdrive-sync appear."
+echo "Install complete. Restart Claude Code (or /init); /invoice-gdrive-sync and /collect-consultant-bills appear."
 echo "External deps: python-docx, Pillow, docx2pdf|libreoffice, Google Drive access."
