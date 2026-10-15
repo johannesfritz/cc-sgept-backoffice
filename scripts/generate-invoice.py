@@ -29,6 +29,12 @@ OUTPUT_DIR = JF_PRIVATE_ROOT / "jf-ceo" / "sgept-backoffice" / "invoicing"
 # gdrive_upload.py: https://drive.google.com/drive/u/0/folders/19bPRghIb2L3cdxZzIattO65uM5En6dHM
 GDRIVE_FOLDER_ID = "19bPRghIb2L3cdxZzIattO65uM5En6dHM"
 
+# Moneypenny is the only issuer of invoice numbers (client-documents plan, cutover-checks).
+NEXT_NUMBER_RETIRED = (
+    "Refused: Moneypenny issues invoice numbers. Draft the invoice with /invoice or /invoice-nipo "
+    "in the Business Development plugin, or ask Lina in Slack.\n"
+)
+
 # Template files
 TEMPLATE_STANDARD = TEMPLATES_DIR / "SGEPT - Invoice standard.docx"
 TEMPLATE_NIPO_REGULAR = TEMPLATES_DIR / "SGEPT - Invoice NIPO regular.docx"
@@ -746,17 +752,6 @@ def _numbers_by_side(year: int | None) -> tuple[dict[str, list[str]], dict[str, 
     return sides[0], sides[1], yy
 
 
-def next_invoice_number(year: int | None = None) -> str:
-    """Return the next free invoice number for a year (two-digit YY, default current year).
-
-    It is the highest number for that year across the local invoicing folder
-    and the Drive invoicing folder, plus one; "YY001" when the year has none.
-    """
-    local, drive, yy = _numbers_by_side(year)
-    used = {int(n) for n in (*local, *drive)}
-    return str(max(used) + 1) if used else f"{yy}001"
-
-
 def number_in_use(number: str, target_folder: str | None = None) -> str | None:
     """Return a one-line reason when an invoice number is taken, None when it is free.
 
@@ -805,26 +800,6 @@ def register_invoice(
     return folder
 
 
-def invoice_number_report(year: int | None = None) -> dict:
-    """Report where the invoice numbers of a year disagree between local and Drive.
-
-    Returns {"drive_only": sorted numbers on Drive only, "local_only": sorted
-    numbers locally only, "duplicates": number -> folder names, for numbers
-    used by more than one folder on the same side}.
-    """
-    local, drive, _ = _numbers_by_side(year)
-    duplicates: dict[str, list[str]] = {}
-    for side in (local, drive):
-        for number, names in side.items():
-            if len(names) > 1:
-                duplicates.setdefault(number, []).extend(names)
-    return {
-        "drive_only": sorted(set(drive) - set(local)),
-        "local_only": sorted(set(local) - set(drive)),
-        "duplicates": duplicates,
-    }
-
-
 def invoice_ledger(year: int | None = None) -> list[dict]:
     """List every invoice number of a year with its Drive and local status.
 
@@ -858,14 +833,6 @@ def write_ledger_csv(rows: list[dict], out: Path) -> None:
                              " | ".join(row["local_folders"]), " | ".join(row["drive_folders"])])
 
 
-def _print_number_report(report: dict) -> None:
-    """Write the findings of invoice_number_report to stderr."""
-    print(f"Drive only (no local copy): {', '.join(report['drive_only']) or 'none'}", file=sys.stderr)
-    print(f"Local only (not on Drive): {', '.join(report['local_only']) or 'none'}", file=sys.stderr)
-    for number, names in sorted(report['duplicates'].items()):
-        print(f"Duplicate {number}: used by {len(names)} folders: {'; '.join(names)}", file=sys.stderr)
-
-
 def _cli():
     import argparse
     ap = argparse.ArgumentParser(description="SGEPT Invoice Generator")
@@ -874,10 +841,9 @@ def _cli():
     ap.add_argument('--no-sync', action='store_true',
                     help="Skip Drive upload (overrides spec.sync).")
     ap.add_argument('--next-number', action='store_true',
-                    help="Print the next free invoice number (max of Drive and local, plus 1); "
-                         "report one-sided and duplicate numbers on stderr.")
+                    help="Retired: Moneypenny issues invoice numbers. Exits 1 and names the plugin commands.")
     ap.add_argument('--year', type=int, metavar='YY',
-                    help="Two-digit year for --next-number and --ledger (default: current year).")
+                    help="Two-digit year for --ledger (default: current year).")
     ap.add_argument('--ledger', action='store_true',
                     help="Write a CSV of every invoice number of the year with its Drive and "
                          "local status (needs --out).")
@@ -913,9 +879,7 @@ def _cli():
         return
 
     if args.next_number:
-        _print_number_report(invoice_number_report(args.year))
-        print(next_invoice_number(args.year))
-        return
+        ap.exit(1, NEXT_NUMBER_RETIRED)
 
     if args.spec_file:
         with open(args.spec_file) as f:

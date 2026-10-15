@@ -1,5 +1,14 @@
 # Change log
 
+## 2026-10-15: Retire the invoice number issuer and the back-office invoice commands (plan client-documents, stage cutover-checks, JF-4217)
+
+Moneypenny now issues every back-office invoice number. Version 0.2.0.
+
+- `scripts/generate-invoice.py`: `--next-number` exits 1 with a message naming `/invoice` and `/invoice-nipo` in the Business Development plugin, and Lina. `next_invoice_number()`, `invoice_number_report()` and `_print_number_report()` are removed with their tests. `--ledger` stays: the Monday check on Metis reads Drive through it. `--spec-file` and `--register` are unchanged.
+- `commands/invoice.md` and `commands/invoice-nipo.md` are removed. Their successors are the commands of the same names in the Business Development plugin.
+- `rules/invoice-governance.md`, `README.md`, `install.sh` and `commands/invoice-gdrive-sync.md` describe the new path.
+- Tests: `tests/test_invoice_numbering.py` loses the three tests of the removed functions and gains one for the refusal (9 tests, from 11).
+
 ## 2026-10-02: Make the manifest pass `claude plugin validate` (plugin-circles)
 
 `plugin.json` no longer declares `agents` as a directory string, which Claude Code rejects, and the repo has no `agents/` folder. Version 0.1.1.
