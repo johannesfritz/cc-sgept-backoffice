@@ -11,14 +11,14 @@ This repo is the **back-office automation engine** for SGEPT invoicing. Dependen
 - **(required)** SGEPT bank account config + NIPO Stripe link config (in `config/` directory)
 - **(optional companion)** cc-os: provides session-tracking, `/handoff`. Invoice flows work without cc-os.
 
-The repo IS structurally tied to the canonical jf-private layout: invoice folders land at `jf-ceo/sgept-backoffice/invoicing/YYMMDD [Descriptor] {NUMBER}/`, `generate-invoice.py --next-number` reads that path and the Drive invoicing folder, and the symlink targets in /jf-ceo/sgept-backoffice/ are the canonical work directory. Standalone consumers would need to provide an equivalent target tree.
+The repo IS structurally tied to the canonical jf-private layout: invoice folders land at `jf-ceo/sgept-backoffice/invoicing/YYMMDD [Descriptor] {NUMBER}/`, `generate-invoice.py --ledger` reads that path and the Drive invoicing folder, and the symlink targets in /jf-ceo/sgept-backoffice/ are the canonical work directory. Standalone consumers would need to provide an equivalent target tree.
 
 ## Contents
 
 | Dir | Purpose |
 |---|---|
 | `agents/` | Back-office agent definitions (future) |
-| `commands/` | Slash commands (`/invoice`, `/invoice-nipo`, `/invoice-gdrive-sync`) symlinked into `jf-ceo/.claude/commands/` |
+| `commands/` | Slash commands (`/invoice-gdrive-sync`, `/collect-consultant-bills`) symlinked into `jf-ceo/.claude/commands/`. New invoices: `/invoice` and `/invoice-nipo` in the Business Development plugin, which Moneypenny numbers |
 | `prompts/` | Prompt fragments consumed by the CoS inbox loop (`invoice-handler.md`) |
 | `scripts/` | `generate-invoice.py`, `pdf_convert.py`, `gdrive_upload.py`, cross-platform (macOS + Linux) |
 | `templates/invoices/` | SGEPT invoice `.docx` templates (NIPO regular/academic_library/academic_student, standard) |

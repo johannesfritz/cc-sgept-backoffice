@@ -1,15 +1,17 @@
 """Acceptance tests for invoice numbering (plan invoice-numbering-drive).
 
-The next number and every refusal must take the Drive invoicing folder and
-the local invoicing folder into account, because invoices made outside the
-generator exist on one side only.
+Every refusal must take the Drive invoicing folder and the local invoicing
+folder into account, because invoices made outside the generator exist on one
+side only. Moneypenny now issues new numbers, so --next-number refuses
+(client-documents plan, cutover-checks).
 """
 import csv
+import subprocess
 import sys
 
 import pytest
 
-from conftest import nipo_spec
+from conftest import SCRIPTS, nipo_spec
 
 
 def _require(gen, name):
@@ -23,27 +25,15 @@ def _local(gen, *names):
         (gen.OUTPUT_DIR / name).mkdir()
 
 
-# next-number-from-drive
+# next-number-refuses
 
-def test_next_number_takes_max_of_drive_and_local(generator, drive):
-    _local(generator, "260101 NIPO A 26010", "260102 B 26012")
-    drive.folders = ["260101 NIPO A 26010", "260103 C 26014", "251201 D 25042", "templates"]
-    assert _require(generator, "next_invoice_number")(year=26) == "26015"
-
-
-def test_next_number_starts_new_year_at_001(generator, drive):
-    _local(generator, "261201 A 26040")
-    drive.folders = ["261201 A 26040"]
-    assert _require(generator, "next_invoice_number")(year=27) == "27001"
-
-
-def test_report_lists_one_sided_and_duplicate_numbers(generator, drive):
-    _local(generator, "260101 A 26010", "260102 B 26012", "260413 C 26015", "260417 D 26015")
-    drive.folders = ["260101 A 26010", "260103 E 26014", "260413 C 26015"]
-    report = _require(generator, "invoice_number_report")(year=26)
-    assert report["drive_only"] == ["26014"]
-    assert report["local_only"] == ["26012"]
-    assert sorted(report["duplicates"]["26015"]) == ["260413 C 26015", "260417 D 26015"]
+def test_next_number_refuses_and_names_the_plugin():
+    done = subprocess.run([sys.executable, str(SCRIPTS / "generate-invoice.py"), "--next-number"],
+                          capture_output=True, text=True, timeout=60)
+    assert done.returncode == 1
+    assert done.stdout == ""
+    assert "Moneypenny issues invoice numbers" in done.stderr
+    assert "/invoice-nipo in the Business Development plugin" in done.stderr
 
 
 # refuse-used-numbers
@@ -139,16 +129,6 @@ def test_suffixed_folders_group_by_sequence_on_both_sides(generator, drive):
         "26010": ["260101 B 26010"],
         "26043": ["261021 NIPO Acme 26043-410200"],
     }
-    assert generator.next_invoice_number(26) == "26045"
-
-
-def test_next_number_cli_counts_suffixed_drive_folder(generator, drive, monkeypatch, capsys):
-    drive.folders = ["261021 NIPO Acme 26043-410200", "260101 B 26010"]
-    monkeypatch.setattr(sys, "argv", ["generate-invoice.py", "--next-number", "--year", "26"])
-    generator._cli()
-    captured = capsys.readouterr()
-    assert captured.out == "26044\n"
-    assert "Drive only (no local copy): 26010, 26043" in captured.err
 
 
 def test_ledger_cli_keeps_sequences_and_full_suffixed_folder_names(generator, drive, tmp_path, monkeypatch):
@@ -157,11 +137,6 @@ def test_ledger_cli_keeps_sequences_and_full_suffixed_folder_names(generator, dr
         "261021 NIPO Acme 26043-410200", "260101 B 26010",
         "261022 C 26044", "261023 D 26044-410210",
     ]
-    report = generator.invoice_number_report(26)
-    assert report == {
-        "drive_only": ["26010"], "local_only": [],
-        "duplicates": {"26044": ["261022 C 26044", "261023 D 26044-410210"]},
-    }
     ledger_path = tmp_path / "ledger.csv"
     monkeypatch.setattr(sys, "argv", [
         "generate-invoice.py", "--ledger", "--year", "26", "--out", str(ledger_path),

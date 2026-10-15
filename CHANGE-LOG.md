@@ -1,5 +1,15 @@
 # Change log
 
+## 2026-10-27: Retire the invoice number issuer and the back-office invoice commands (plan client-documents, stage cutover-checks, JF-4217)
+
+Moneypenny now issues every back-office invoice number. Version 0.2.0.
+
+- `scripts/generate-invoice.py`: `--next-number` exits 1 with a message naming `/invoice` and `/invoice-nipo` in the Business Development plugin, and Lina. `next_invoice_number()`, `invoice_number_report()` and `_print_number_report()` are removed with their tests. `--ledger` stays: the Monday check on Metis reads Drive through it. `--spec-file` and `--register` are unchanged.
+- `commands/invoice.md` and `commands/invoice-nipo.md` are removed. Their successors are the commands of the same names in the Business Development plugin.
+- `rules/invoice-governance.md`, `README.md`, `install.sh` and `commands/invoice-gdrive-sync.md` describe the new path.
+- `rules/invoice-governance.md` keeps JF-4340's two number forms and their shared sequence.
+- Tests: `tests/test_invoice_numbering.py` loses the tests of the removed functions, including JF-4340's next-number and report cases, and gains one for the refusal. Rebased on main for JF-4385.
+
 ## 2026-10-27: Count account-suffixed invoice folders in the ledger (JF-4340)
 
 - `scripts/generate-invoice.py`: `_number_of` reads the five-digit sequence from folders ending in `YYNNN` or `YYNNN-NNNNNN`. Ledger rows, number reports and `--next-number` include both forms; full folder names remain in the ledger. One-digit reissue markers stay unparsed.

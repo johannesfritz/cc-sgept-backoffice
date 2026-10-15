@@ -12,9 +12,10 @@ Invariants every invoice must satisfy. Violations have produced broken invoices 
 
 ## Numbering
 
-- **Old generator: 5 digits, no separator.** Until its retirement, the old generator issues only `YYNNN`, such as `26015` or `26007`; it never issues the suffixed form. Never split the sequence as `26-015`, `26/015` or `26_015`.
-- **Moneypenny from switch-on: `YYNNN-NNNNNN`.** The five-digit sequence, a hyphen, then exactly six digits for the revenue account: `26043-410210`. Preserve the account suffix.
-- **One yearly sequence across both forms.** The suffix does not create a separate series. Take the next sequence from `python3 scripts/generate-invoice.py --next-number` (add `--year YY` for another year). It prints the highest sequence across the Drive invoicing folder and the local invoicing folder, plus 1, as five digits, and lists one-sided and duplicate sequences on stderr. The ledger's `number` column holds the sequence; its `drive_folders` column preserves the full folder names, including account suffixes. Never pick a number by listing a single folder. Never skip; never duplicate.
+- **Old generator numbers: 5 digits, no separator.** The old generator issued only `YYNNN`, such as `26015` or `26007`. Never `26-015`, `26/015` or `26_015`. Strip any separators before passing a number to the script.
+- **Moneypenny numbers: `YYNNN-NNNNNN`.** The five-digit sequence, a hyphen, then exactly six digits for the revenue account: `26043-410210`. Preserve the account suffix.
+- **One yearly sequence across both forms.** The suffix does not create a separate series. The ledger's `number` column holds the sequence; its `drive_folders` column preserves the full folder names, including account suffixes.
+- **Moneypenny issues every new number.** Draft new invoices with `/invoice` or `/invoice-nipo` in the Business Development plugin, or ask Lina; Moneypenny numbers each one when its drafter approves it. `generate-invoice.py --next-number` refuses. Never pick a number by hand or by listing a folder.
 
 ## Dates
 
