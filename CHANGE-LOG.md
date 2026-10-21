@@ -1,5 +1,11 @@
 # Change log
 
+## 2026-10-21: the next invoice takes the skipped number 26041 (one-off)
+
+- `rules/invoice-governance.md`, Numbering: a one-off line says the next back-office invoice takes 26041, and the one after it takes `--next-number` again. The line is removed once 26041 is used.
+- Why: Johannes, 21 October 2026: "26041 was not an invoice. I accidently skipped it. We should assign it at the next occasion." He approved adding the line in the orchestrator's question dialog at about 18:4x UTC ("Add the line").
+- Checked: no Drive folder or file carries invoice number 26041. The 2026 folders end at 26040 and 26042, and the folder "260611 NIPO FRB 26038" holds only its 26038 PDF. Moneypenny has no document or deal numbered 26041.
+
 ## 2026-10-21: NIPO academic library invoices carry the requested period (JCC-8834)
 
 - `scripts/generate-invoice.py`: the body period replacement falls back to a substring replace inside a run, and raises if neither finds the template text. The academic library template holds "January 2026 to December 2026" inside one longer run, so the span replacement missed it silently and draft 26040 first showed the template period.

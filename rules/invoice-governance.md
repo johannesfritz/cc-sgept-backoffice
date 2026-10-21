@@ -14,6 +14,7 @@ Invariants every invoice must satisfy. Violations have produced broken invoices 
 
 - **5 digits, no separator.** `26015`, `26007`. Never `26-015`, `26/015`, `26_015`. Strip any separators before passing to the script.
 - **Sequential.** Take the next number from `python3 scripts/generate-invoice.py --next-number` (add `--year YY` for another year). It prints the highest number across the Drive invoicing folder and the local invoicing folder, plus 1, and lists one-sided and duplicate numbers on stderr. Never pick a number by listing a single folder. Never skip; never duplicate.
+- **One-off, 26041 (Johannes, 21 October 2026).** 26041 was skipped by mistake and was never an invoice. The next back-office invoice takes 26041, not the number `--next-number` prints. Before using it, confirm again that no Drive invoicing folder ends in 26041 (checked 21 October: none; 2026 ends at 26040 and 26042). The invoice after it takes `--next-number` again (26043). Once 26041 is used, delete this line and add a change-log entry.
 
 ## Dates
 
