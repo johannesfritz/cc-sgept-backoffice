@@ -387,10 +387,18 @@ def generate_nipo_invoice(
 
     # Body paragraph: period start/end
     p_body = paras[layout['p_body']]
-    if layout['tpl_period_start_in_body']:
-        _replace_span(p_body, layout['tpl_period_start_in_body'], period_start)
-    if layout['tpl_period_end_in_body']:
-        _replace_span(p_body, layout['tpl_period_end_in_body'], period_end)
+    for tpl_text, new_text in [
+        (layout['tpl_period_start_in_body'], period_start),
+        (layout['tpl_period_end_in_body'], period_end),
+    ]:
+        if not tpl_text:
+            continue
+        if not (_replace_span(p_body, tpl_text, new_text)
+                or _replace_in_run_texts(p_body, tpl_text, new_text)):
+            raise RuntimeError(
+                f"Could not replace template period '{tpl_text}' in P[{layout['p_body']}] "
+                f"of {template.name}."
+            )
 
     # Fee + Total lines: amount + currency
     for p_idx in [layout['p_fee'], layout['p_total']]:

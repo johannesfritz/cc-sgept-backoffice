@@ -1,5 +1,10 @@
 # Change log
 
+## 2026-10-21: NIPO academic library invoices carry the requested period (JCC-8834)
+
+- `scripts/generate-invoice.py`: the body period replacement falls back to a substring replace inside a run, and raises if neither finds the template text. The academic library template holds "January 2026 to December 2026" inside one longer run, so the span replacement missed it silently and draft 26040 first showed the template period.
+- `tests/test_nipo_period.py`: the regular and academic library tiers both write the requested period. The library case fails without the fix.
+
 ## 2026-10-02: Make the manifest pass `claude plugin validate` (plugin-circles)
 
 `plugin.json` no longer declares `agents` as a directory string, which Claude Code rejects, and the repo has no `agents/` folder. Version 0.1.1.
