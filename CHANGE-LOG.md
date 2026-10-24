@@ -1,5 +1,12 @@
 # Change log
 
+## 2026-10-25: the office inbox routine proposes cards through the capture queue (JCC-8403)
+
+- `prompts/office-inbox-routine.md`: the routine no longer creates JF cards with `linear-api.py` and the `source: office-email` labels. It proposes one card per request through jf-metis `cos-capture-queue.py add`, with `mailbox: office`, `thread_id:` and `request_key:`. The evening flush checks for Johannes's reply and opens an unlabelled Triage card.
+- Receipts, invoices for the record, activity reports, weekly summaries and sign-in notices get no card. They are listed under `no_card` in the RESULT block with a reason.
+- Spam trashing, the consultant-invoice skip and the sender-mismatch abort are unchanged.
+- Merge together with the jf-metis wrapper change, which allows queue add in place of `linear-api.py`. Either change alone breaks the next run.
+
 ## 2026-10-21: NIPO academic library invoices carry the requested period (JCC-8834)
 
 - `scripts/generate-invoice.py`: the body period replacement falls back to a substring replace inside a run, and raises if neither finds the template text. The academic library template holds "January 2026 to December 2026" inside one longer run, so the span replacement missed it silently and draft 26040 first showed the template period.
