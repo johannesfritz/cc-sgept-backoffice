@@ -728,8 +728,8 @@ def generate_from_spec(spec):
 
 
 def _number_of(folder_name: str) -> str | None:
-    """Return the trailing five-digit invoice number of a folder name, or None."""
-    match = re.search(r' (\d{5})$', folder_name)
+    """Return the five-digit sequence, allowing a six-digit account suffix, or None."""
+    match = re.search(r' (\d{5})(?:-\d{6})?$', folder_name)
     return match.group(1) if match else None
 
 

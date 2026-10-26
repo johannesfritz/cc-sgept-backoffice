@@ -7,12 +7,18 @@ JSON spec passed to `generate-invoice.py --spec-file <path>` (non-interactive mo
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `type` | `"nipo"` or `"standard"` | yes | Dispatch key |
-| `invoice_number` | string | yes | 5 digits, no hyphen (e.g. `"26016"`) |
+| `invoice_number` | string | yes | Old generator: five-digit `YYNNN` only (e.g. `"26016"`). Moneypenny from switch-on: `YYNNN-NNNNNN`; see Numbering below. |
 | `invoice_date` | string | yes | `"2026-05-02"` or `"02 May 2026"` |
 | `currency` | `"CHF"`, `"EUR"`, or `"USD"` | yes | Selects IBAN |
 | `recipient` | object | yes | `{company, name, street, city, country}` |
 | `abbrev` | string | yes | Short identifier for the Drive folder (`"KIEP"`, `"IADB"`). Never auto-derived. |
 | `sync` | bool | no | Default `true`. `false` generates `.docx` only, skips PDF + Drive. |
+
+## Numbering
+
+Until its retirement, the old generator issues only five-digit `YYNNN` numbers and never issues the suffixed form. Specs passed to `generate-invoice.py` must keep that five-digit form.
+
+Invoices issued by Moneypenny from switch-on use `YYNNN-NNNNNN`: the five-digit sequence, a hyphen, then exactly six digits for the revenue account, for example `26043-410210`. Preserve that suffix. Both forms share one yearly sequence; the account does not create a separate series. `--next-number` returns the next five-digit sequence. The ledger's `number` column holds that sequence, while `drive_folders` preserves the full folder names.
 
 ## NIPO extras (`type: "nipo"`)
 
@@ -89,7 +95,7 @@ JSON spec passed to `generate-invoice.py --spec-file <path>` (non-interactive mo
 
 ## Invariants (also in `rules/invoice-governance.md`)
 
-- Invoice numbers are exactly 5 digits, no separator. `26015`, not `26-015`.
+- The old generator uses five-digit invoice numbers only; Moneypenny from switch-on uses the suffixed form described under Numbering. Both share one yearly sequence.
 - `subscription_period` uses `" - "` (space-hyphen-space) and full `"Month YYYY"` on both sides.
 - `invoice_date` is the actual send date unless explicitly stated otherwise.
 - Post-generation verification (read back the .docx and check 9 fields) is MANDATORY for NIPO; strongly recommended for standard.

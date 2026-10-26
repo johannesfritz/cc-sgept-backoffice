@@ -1,5 +1,14 @@
 # Change log
 
+## 2026-10-27: Count account-suffixed invoice folders in the ledger (JF-4340)
+
+- `scripts/generate-invoice.py`: `_number_of` reads the five-digit sequence from folders ending in `YYNNN` or `YYNNN-NNNNNN`. Ledger rows, number reports and `--next-number` include both forms; full folder names remain in the ledger. One-digit reissue markers stay unparsed.
+- The unchanged `number_in_use` now treats a sequence held by a suffixed local or Drive folder as used. The old generator still issues five-digit numbers only.
+- `rules/invoice-governance.md`, `knowledge/invoice-spec-schema.md`: distinguish the old generator's five-digit form from Moneypenny's account-suffixed form from switch-on, sharing one yearly sequence.
+- `tests/test_invoice_numbering.py`: cover suffix validation, local and fake Drive grouping, reports, next-number stdout, ledger CSV content and used-number detection. No changes to issuance, Drive upload, the retired commands or the handler prompt.
+- Verification: 28 tests pass; the plan's sequence-grouping and wording checks and the unchanged Drive folder-naming guard pass. Drive access is faked throughout.
+- Follow-up: none within this card; the Monday check and generator retirement remain with their existing cards.
+
 ## 2026-10-25: the office inbox routine proposes cards through the capture queue (JCC-8403)
 
 - `prompts/office-inbox-routine.md`: the routine no longer creates JF cards with `linear-api.py` and the `source: office-email` labels. It proposes one card per request through jf-metis `cos-capture-queue.py add`, with `mailbox: office`, `thread_id:` and `request_key:`. The evening flush checks for Johannes's reply and opens an unlabelled Triage card.

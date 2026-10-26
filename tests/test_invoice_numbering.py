@@ -4,6 +4,9 @@ The next number and every refusal must take the Drive invoicing folder and
 the local invoicing folder into account, because invoices made outside the
 generator exist on one side only.
 """
+import csv
+import sys
+
 import pytest
 
 from conftest import nipo_spec
@@ -100,3 +103,91 @@ def test_ledger_classifies_numbers(generator, drive):
     assert [(r["number"], r["status"]) for r in rows] == [
         ("26001", "both"), ("26002", "local_only"), ("26003", "duplicate"), ("26004", "drive_only"),
     ]
+
+
+# ledger-suffix (JF-4340)
+
+@pytest.mark.parametrize("folder_name, expected", [
+    ("260101 B 26010", "26010"),
+    ("261021 NIPO Acme 26043-410200", "26043"),
+    ("261021 NIPO Acme 26043-410210", "26043"),
+    ("260907 Teneo 26015-2", None),
+    ("261021 Acme 26043-41021", None),
+    ("261021 Acme 26043-4102100", None),
+    ("261021 Acme 26043-41021A", None),
+    ("261021 Acme 26043-", None),
+    ("261021 Acme 126043-410210", None),
+    ("261021 Acme 26043-410210 extra", None),
+])
+def test_folder_number_reads_sequence_with_optional_six_digit_suffix(generator, folder_name, expected):
+    assert generator._number_of(folder_name) == expected
+
+
+def test_suffixed_folders_group_by_sequence_on_both_sides(generator, drive):
+    _local(generator, "261021 NIPO Acme 26043-410210", "261022 C 26044-410200")
+    drive.folders = [
+        "261021 NIPO Acme 26043-410200", "260101 B 26010",
+        "251201 D 25042-410210", "260907 Teneo 26015-2",
+    ]
+    local, remote, year = generator._numbers_by_side(26)
+    assert year == "26"
+    assert local == {
+        "26043": ["261021 NIPO Acme 26043-410210"],
+        "26044": ["261022 C 26044-410200"],
+    }
+    assert remote == {
+        "26010": ["260101 B 26010"],
+        "26043": ["261021 NIPO Acme 26043-410200"],
+    }
+    assert generator.next_invoice_number(26) == "26045"
+
+
+def test_next_number_cli_counts_suffixed_drive_folder(generator, drive, monkeypatch, capsys):
+    drive.folders = ["261021 NIPO Acme 26043-410200", "260101 B 26010"]
+    monkeypatch.setattr(sys, "argv", ["generate-invoice.py", "--next-number", "--year", "26"])
+    generator._cli()
+    captured = capsys.readouterr()
+    assert captured.out == "26044\n"
+    assert "Drive only (no local copy): 26010, 26043" in captured.err
+
+
+def test_ledger_cli_keeps_sequences_and_full_suffixed_folder_names(generator, drive, tmp_path, monkeypatch):
+    _local(generator, "261021 NIPO Acme 26043-410210", "261022 C 26044-410200")
+    drive.folders = [
+        "261021 NIPO Acme 26043-410200", "260101 B 26010",
+        "261022 C 26044", "261023 D 26044-410210",
+    ]
+    report = generator.invoice_number_report(26)
+    assert report == {
+        "drive_only": ["26010"], "local_only": [],
+        "duplicates": {"26044": ["261022 C 26044", "261023 D 26044-410210"]},
+    }
+    ledger_path = tmp_path / "ledger.csv"
+    monkeypatch.setattr(sys, "argv", [
+        "generate-invoice.py", "--ledger", "--year", "26", "--out", str(ledger_path),
+    ])
+    generator._cli()
+    with ledger_path.open(newline="") as ledger_file:
+        rows = list(csv.DictReader(ledger_file))
+    assert rows == [
+        {"number": "26010", "status": "drive_only", "local_folders": "",
+         "drive_folders": "260101 B 26010"},
+        {"number": "26043", "status": "both",
+         "local_folders": "261021 NIPO Acme 26043-410210",
+         "drive_folders": "261021 NIPO Acme 26043-410200"},
+        {"number": "26044", "status": "duplicate",
+         "local_folders": "261022 C 26044-410200",
+         "drive_folders": "261022 C 26044 | 261023 D 26044-410210"},
+    ]
+
+
+@pytest.mark.parametrize("side", ["local", "drive"])
+def test_five_digit_number_is_in_use_when_suffixed_folder_exists(generator, drive, side):
+    folder_name = "261021 NIPO Acme 26043-410210"
+    if side == "local":
+        _local(generator, folder_name)
+    else:
+        drive.folders = [folder_name]
+    reason = generator.number_in_use("26043")
+    assert reason is not None and folder_name in reason
+    assert generator.number_in_use("26044") is None
