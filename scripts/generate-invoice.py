@@ -754,24 +754,60 @@ def _numbers_by_side(year: int | None) -> tuple[dict[str, list[str]], dict[str, 
     return sides[0], sides[1], yy
 
 
+def moneypenny_series(year: int) -> dict:
+    """Return Moneypenny's back-office series report for a four-digit year.
+
+    Its `last_number` is the counter Lina's invoice drafts raise, its
+    `reserved` lists the numbers open drafts hold, and its `cancelled` lists
+    the numbers of rejected drafts Moneypenny keeps as void. Raises RuntimeError when
+    MNP_API_URL or MNP_API_TOKEN is unset or the service cannot be read, so no
+    number is given that a Lina draft may hold.
+    """
+    import http.client
+    import urllib.request
+
+    base, token = os.environ.get("MNP_API_URL", "").rstrip("/"), os.environ.get("MNP_API_TOKEN", "")
+    if not base or not token:
+        raise RuntimeError("MNP_API_URL and MNP_API_TOKEN must be set to read Moneypenny's invoice counter")
+    request = urllib.request.Request(
+        f"{base}/v1/documents/series/?series=backoffice&year={year}",
+        headers={"Accept": "application/json", "Authorization": f"Bearer {token}"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            report = json.load(response)
+        return {
+            "last_number": int(report["last_number"]),
+            "reserved": [str(n) for n in report.get("reserved", [])],
+            "cancelled": [str(n) for n in report.get("cancelled", [])],
+        }
+    except (OSError, http.client.HTTPException, ValueError, KeyError, TypeError) as err:
+        raise RuntimeError(f"Cannot read Moneypenny's invoice counter: {err}") from err
+
+
 def next_invoice_number(year: int | None = None) -> str:
     """Return the next free invoice number for a year (two-digit YY, default current year).
 
-    It is the highest number for that year across the local invoicing folder
-    and the Drive invoicing folder, plus one; "YY001" when the year has none.
+    It is one above the highest of the year's numbers in the local invoicing
+    folder, the Drive invoicing folder and Moneypenny's counter, which also
+    covers numbers Lina's drafts hold; "YY001" when the year has none.
+    Until the generator is retired (JF-4217), this keeps it from taking a
+    number Moneypenny has given out.
     """
     local, drive, yy = _numbers_by_side(year)
-    used = {int(n) for n in (*local, *drive)}
-    return str(max(used) + 1) if used else f"{yy}001"
+    highest = max({int(n) for n in (*local, *drive)} | {moneypenny_series(2000 + int(yy))["last_number"]})
+    return str(highest + 1) if highest > int(yy) * 1000 else f"{yy}001"
 
 
 def number_in_use(number: str, target_folder: str | None = None) -> str | None:
     """Return a one-line reason when an invoice number is taken, None when it is free.
 
     A number is taken when a local folder other than target_folder ends with it,
-    or when a Drive folder ends with it and no local folder does (an invoice made
-    elsewhere). The local folder named target_folder never counts, so the same
-    invoice can be regenerated.
+    when a Drive folder ends with it and no local folder does (an invoice made
+    elsewhere), or when Moneypenny holds it for a Lina draft or keeps it as a
+    cancelled draft's void number. The local folder
+    named target_folder never counts, so the same invoice can be regenerated.
+    When Moneypenny cannot be read, the number counts as taken.
     """
     if not re.fullmatch(r'\d{5}', number):
         raise ValueError(f"Invoice number must be five digits, got {number!r}")
@@ -781,6 +817,16 @@ def number_in_use(number: str, target_folder: str | None = None) -> str | None:
         return f"Invoice number {number} is already used by local folder '{others[0]}'"
     if number not in local and number in drive:
         return f"Invoice number {number} is already used on Drive by folder '{drive[number][0]}'"
+    try:
+        report = moneypenny_series(2000 + int(number[:2]))
+    except RuntimeError as err:
+        return f"Invoice number {number} cannot be checked against Moneypenny's drafts: {err}"
+    held = [n for n in report["reserved"] if n.split("-")[0] == number]
+    if held:
+        return f"Invoice number {number} is held by a Lina draft in Moneypenny as {held[0]}"
+    void = [n for n in report["cancelled"] if n.split("-")[0] == number]
+    if void:
+        return f"Invoice number {number} belongs to a cancelled Lina draft that Moneypenny keeps as {void[0]}"
     return None
 
 
@@ -882,7 +928,8 @@ def _cli():
     ap.add_argument('--no-sync', action='store_true',
                     help="Skip Drive upload (overrides spec.sync).")
     ap.add_argument('--next-number', action='store_true',
-                    help="Print the next free invoice number (max of Drive and local, plus 1); "
+                    help="Print the next free invoice number (max of Drive, local and Moneypenny's "
+                         "counter, plus 1); "
                          "report one-sided and duplicate numbers on stderr.")
     ap.add_argument('--year', type=int, metavar='YY',
                     help="Two-digit year for --next-number and --ledger (default: current year).")
@@ -922,7 +969,10 @@ def _cli():
 
     if args.next_number:
         _print_number_report(invoice_number_report(args.year))
-        print(next_invoice_number(args.year))
+        try:
+            print(next_invoice_number(args.year))
+        except RuntimeError as err:
+            ap.exit(1, f"Refused: {err}\n")
         return
 
     if args.spec_file:

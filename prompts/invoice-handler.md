@@ -60,7 +60,7 @@ Once an invoice JFM workflow YAML exists at `cc-project-mgmt-team/workflows/invo
 python3 /home/deploy/jf-private/claude-setup/cc-sgept-backoffice/scripts/generate-invoice.py --next-number
 ```
 
-The single stdout line is the next number: the highest number across the Drive invoicing folder and the local invoicing folder, plus 1. Its stderr lists numbers present on one side only and numbers used by more than one folder; mention any finding in the reply to the CEO. (If the CEO specified a number explicitly in their request, use that and skip this step.)
+The single stdout line is the next number: the highest number across the Drive invoicing folder, the local invoicing folder and Moneypenny's back-office counter (which covers numbers Lina's drafts hold), plus 1. If stdout is empty and stderr says `Refused: …`, stop, tell the CEO the refusal in one line, and pick no number another way. Its stderr lists numbers present on one side only and numbers used by more than one folder; mention any finding in the reply to the CEO. (If the CEO specified a number explicitly in their request, use that and skip this step.)
 
 ## STEP B.0 — Extract everything you can in one pass
 

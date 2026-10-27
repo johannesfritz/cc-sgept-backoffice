@@ -9,7 +9,7 @@ For NIPO subscription invoices, redirect the user to `/invoice-nipo` instead.
 
 From the user's message, extract or ask for (via AskUserQuestion):
 
-1. **Invoice Number** — run `python3 scripts/generate-invoice.py --next-number` and suggest the number it prints (stdout). It already includes Drive; read its stderr findings (one-sided or duplicate numbers) and tell the user about any
+1. **Invoice Number** — run `python3 scripts/generate-invoice.py --next-number` and suggest the number it prints (stdout). It already includes Drive and Moneypenny's counter, which covers numbers Lina's drafts hold. If it prints `Refused: …` and no number, stop and report the refusal; pick no number another way. Otherwise, read its stderr findings (one-sided or duplicate numbers) and tell the user about any
 2. **Invoice Date** — default to today
 3. **Currency** (CHF, EUR, or USD)
 4. **Recipient**: company, contact person name, street, city, country

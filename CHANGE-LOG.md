@@ -1,5 +1,13 @@
 # Change log
 
+## 2026-10-27: `--next-number` and `number_in_use` also read Moneypenny (JF-4429)
+
+- `scripts/generate-invoice.py`: Moneypenny now reserves an invoice's number when Lina drafts it, before any folder exists. `next_invoice_number` therefore takes the maximum of the local folder, the Drive folder and Moneypenny's back-office counter (`GET /v1/documents/series/`, `last_number`). `number_in_use`, which filing and a number the CEO names both pass through, also refuses a number an open Lina draft holds (the report's `reserved`) or a cancelled draft's void number (`cancelled`), both compared by sequence, and refuses when Moneypenny cannot be read. This is a stopgap until the generator is retired (JF-4217, #1).
+- One window remains. With `--no-sync`, or between the check and the Drive upload, Moneypenny does not see the generator's folder, so a Lina draft made then can take the same number. Moneypenny reads Drive at each draft, so a folder that reached Drive is seen.
+- Without `MNP_API_URL` and `MNP_API_TOKEN`, or when Moneypenny cannot be read, `--next-number` prints `Refused: …` on stderr and exits 1 instead of giving a number a draft may hold. `--ledger` is unchanged.
+- `rules/invoice-governance.md`, `prompts/invoice-handler.md`, `commands/invoice.md` and `commands/invoice-nipo.md` name Moneypenny's counter and say: on `Refused`, stop and report; pick no number another way.
+- Tests: `tests/test_invoice_numbering.py` covers the maximum, the series-report read, the refusals (no settings, unreachable, cut-off body, no counter), a number a draft holds, a cancelled draft's number, and filing refused when Moneypenny cannot be read; the shared `generator` fixture fakes the series report. 37 tests pass (28 before).
+
 ## 2026-10-27: Count account-suffixed invoice folders in the ledger (JF-4340)
 
 - `scripts/generate-invoice.py`: `_number_of` reads the five-digit sequence from folders ending in `YYNNN` or `YYNNN-NNNNNN`. Ledger rows, number reports and `--next-number` include both forms; full folder names remain in the ledger. One-digit reissue markers stay unparsed.

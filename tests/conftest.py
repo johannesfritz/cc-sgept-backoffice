@@ -59,12 +59,46 @@ def drive(monkeypatch: pytest.MonkeyPatch) -> FakeDrive:
 
 
 @pytest.fixture
-def generator(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, drive: FakeDrive) -> types.ModuleType:
-    """The invoice generator, writing into an empty temporary invoicing folder."""
+def moneypenny() -> dict[int, int]:
+    """Moneypenny's back-office counter by four-digit year; a year not listed reads 0."""
+    return {}
+
+
+@pytest.fixture
+def moneypenny_reserved() -> dict[int, list[str]]:
+    """The numbers Lina's open drafts hold in Moneypenny, by four-digit year; a year not listed holds none."""
+    return {}
+
+
+@pytest.fixture
+def moneypenny_cancelled() -> dict[int, list[str]]:
+    """The void numbers of Lina's cancelled drafts in Moneypenny, by four-digit year."""
+    return {}
+
+
+@pytest.fixture
+def generator(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    drive: FakeDrive,
+    moneypenny: dict[int, int],
+    moneypenny_reserved: dict[int, list[str]],
+    moneypenny_cancelled: dict[int, list[str]],
+) -> types.ModuleType:
+    """The invoice generator, writing into an empty temporary invoicing folder, with a fake Moneypenny series."""
     gen = load_script("generate_invoice", "generate-invoice.py")
     out = tmp_path / "invoicing"
     out.mkdir()
     monkeypatch.setattr(gen, "OUTPUT_DIR", out)
+    monkeypatch.setattr(
+        gen,
+        "moneypenny_series",
+        lambda year: {
+            "last_number": moneypenny.get(year, 0),
+            "reserved": moneypenny_reserved.get(year, []),
+            "cancelled": moneypenny_cancelled.get(year, []),
+        },
+    )
     return gen
 
 
