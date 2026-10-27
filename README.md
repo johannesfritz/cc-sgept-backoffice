@@ -38,7 +38,7 @@ ln -s ../../../claude-setup/cc-sgept-backoffice/templates/invoices \
       jf-ceo/sgept-backoffice/templates/invoices
 ln -s ../../../../claude-setup/cc-sgept-backoffice/config \
       jf-ceo/sgept-backoffice/invoicing/config
-for f in invoice invoice-nipo invoice-gdrive-sync; do
+for f in invoice-gdrive-sync collect-consultant-bills; do
   ln -s ../../../claude-setup/cc-sgept-backoffice/commands/${f}.md \
         jf-ceo/.claude/commands/${f}.md
 done
