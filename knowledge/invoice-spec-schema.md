@@ -16,9 +16,9 @@ JSON spec passed to `generate-invoice.py --spec-file <path>` (non-interactive mo
 
 ## Numbering
 
-Until its retirement, the old generator issues only five-digit `YYNNN` numbers and never issues the suffixed form. Specs passed to `generate-invoice.py` must keep that five-digit form.
+The old generator issued only five-digit `YYNNN` numbers and never the suffixed form. Specs passed to `generate-invoice.py` must keep that five-digit form.
 
-Invoices issued by Moneypenny from switch-on use `YYNNN-NNNNNN`: the five-digit sequence, a hyphen, then exactly six digits for the revenue account, for example `26043-410210`. Preserve that suffix. Both forms share one yearly sequence; the account does not create a separate series. `--next-number` returns the next five-digit sequence. The ledger's `number` column holds that sequence, while `drive_folders` preserves the full folder names.
+Invoices issued by Moneypenny from switch-on use `YYNNN-NNNNNN`: the five-digit sequence, a hyphen, then exactly six digits for the revenue account, for example `26043-410210`. Preserve that suffix. Both forms share one yearly sequence; the account does not create a separate series. Moneypenny issues every new number; `--next-number` refuses. The ledger's `number` column holds that sequence, while `drive_folders` preserves the full folder names.
 
 ## NIPO extras (`type: "nipo"`)
 

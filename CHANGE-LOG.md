@@ -6,8 +6,10 @@ Moneypenny now issues every back-office invoice number. Version 0.2.0.
 
 - `scripts/generate-invoice.py`: `--next-number` exits 1 with a message naming `/invoice` and `/invoice-nipo` in the Business Development plugin, and Lina. `next_invoice_number()`, `invoice_number_report()` and `_print_number_report()` are removed with their tests. `--ledger` stays: the Monday check on Metis reads Drive through it. `--spec-file` and `--register` are unchanged.
 - `commands/invoice.md` and `commands/invoice-nipo.md` are removed. Their successors are the commands of the same names in the Business Development plugin.
+- `prompts/invoice-handler.md`, the Chief of Staff invoice path, is removed. Deploy jf-metis#100 first: it stops the inbox loading the handler and stops `invoice-nipo` spawning.
 - `rules/invoice-governance.md`, `README.md`, `install.sh` and `commands/invoice-gdrive-sync.md` describe the new path.
 - `rules/invoice-governance.md` keeps JF-4340's two number forms and their shared sequence.
+- `knowledge/invoice-spec-schema.md`, `.audit-canonical-layout` and the refusal text follow suit; `_numbers_by_side` no longer returns the unused year.
 - Tests: `tests/test_invoice_numbering.py` loses the tests of the removed functions, including JF-4340's next-number and report cases, and gains one for the refusal. Rebased on main for JF-4385.
 
 ## 2026-10-27: Count account-suffixed invoice folders in the ledger (JF-4340)

@@ -5,6 +5,5 @@
 README.md
 .claude-plugin/marketplace.json
 .claude-plugin/plugin.json
-prompts/invoice-handler.md
 rules/invoice-governance.md
 scripts/generate-invoice.py

@@ -119,8 +119,7 @@ def test_suffixed_folders_group_by_sequence_on_both_sides(generator, drive):
         "261021 NIPO Acme 26043-410200", "260101 B 26010",
         "251201 D 25042-410210", "260907 Teneo 26015-2",
     ]
-    local, remote, year = generator._numbers_by_side(26)
-    assert year == "26"
+    local, remote = generator._numbers_by_side(26)
     assert local == {
         "26043": ["261021 NIPO Acme 26043-410210"],
         "26044": ["261022 C 26044-410200"],

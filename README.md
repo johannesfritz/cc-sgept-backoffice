@@ -19,7 +19,7 @@ The repo IS structurally tied to the canonical jf-private layout: invoice folder
 |---|---|
 | `agents/` | Back-office agent definitions (future) |
 | `commands/` | Slash commands (`/invoice-gdrive-sync`, `/collect-consultant-bills`) symlinked into `jf-ceo/.claude/commands/`. New invoices: `/invoice` and `/invoice-nipo` in the Business Development plugin, which Moneypenny numbers |
-| `prompts/` | Prompt fragments consumed by the CoS inbox loop (`invoice-handler.md`) |
+| `prompts/` | Prompt fragments for scheduled routines (`invoice-routine-server.md`, `office-inbox-routine.md`) |
 | `scripts/` | `generate-invoice.py`, `pdf_convert.py`, `gdrive_upload.py`, cross-platform (macOS + Linux) |
 | `templates/invoices/` | SGEPT invoice `.docx` templates (NIPO regular/academic_library/academic_student, standard) |
 | `config/` | `bank-accounts.json`, `nipo-stripe-links.json` |

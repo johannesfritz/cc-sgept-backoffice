@@ -32,7 +32,7 @@ GDRIVE_FOLDER_ID = "19bPRghIb2L3cdxZzIattO65uM5En6dHM"
 # Moneypenny is the only issuer of invoice numbers (client-documents plan, cutover-checks).
 NEXT_NUMBER_RETIRED = (
     "Refused: Moneypenny issues invoice numbers. Draft the invoice with /invoice or /invoice-nipo "
-    "in the Business Development plugin, or ask Lina in Slack.\n"
+    "in the Business Development plugin, or ask Lina in Slack or by email (lina.marti@sgept.org).\n"
 )
 
 # Template files
@@ -739,10 +739,10 @@ def _number_of(folder_name: str) -> str | None:
     return match.group(1) if match else None
 
 
-def _numbers_by_side(year: int | None) -> tuple[dict[str, list[str]], dict[str, list[str]], str]:
+def _numbers_by_side(year: int | None) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
     """Group folder names by invoice number on the local and Drive side for one year.
 
-    Returns (local, drive, yy) where local and drive map number -> folder names.
+    Returns (local, drive), each mapping number -> folder names.
     """
     yy = f"{(datetime.now().year if year is None else year) % 100:02d}"
     sys.path.insert(0, str(SCRIPT_PATH.parent))
@@ -757,7 +757,7 @@ def _numbers_by_side(year: int | None) -> tuple[dict[str, list[str]], dict[str, 
             if number is not None and number.startswith(yy):
                 grouped.setdefault(number, []).append(name)
         sides.append(grouped)
-    return sides[0], sides[1], yy
+    return sides[0], sides[1]
 
 
 def number_in_use(number: str, target_folder: str | None = None) -> str | None:
@@ -770,7 +770,7 @@ def number_in_use(number: str, target_folder: str | None = None) -> str | None:
     """
     if not re.fullmatch(r'\d{5}', number):
         raise ValueError(f"Invoice number must be five digits, got {number!r}")
-    local, drive, _ = _numbers_by_side(2000 + int(number[:2]))
+    local, drive = _numbers_by_side(2000 + int(number[:2]))
     others = [name for name in local.get(number, []) if name != target_folder]
     if others:
         return f"Invoice number {number} is already used by local folder '{others[0]}'"
@@ -816,7 +816,7 @@ def invoice_ledger(year: int | None = None) -> list[dict]:
     when either side has more than one folder for the number, otherwise "both",
     "drive_only" or "local_only".
     """
-    local, drive, _ = _numbers_by_side(year)
+    local, drive = _numbers_by_side(year)
     rows = []
     for number in sorted(set(local) | set(drive)):
         local_folders, drive_folders = local.get(number, []), drive.get(number, [])
