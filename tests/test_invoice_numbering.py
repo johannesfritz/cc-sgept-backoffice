@@ -208,22 +208,35 @@ def test_next_number_takes_moneypenny_counter_when_higher(generator, drive, mone
     assert generator.next_invoice_number(26) == "26044"
 
 
-def test_moneypenny_counter_is_read_from_the_series_report(monkeypatch):
-    """The counter and the drafts' numbers come from the series report for the year, with the service token."""
-    gen = load_script("generate_invoice_reader", "generate-invoice.py")
+@pytest.mark.parametrize(
+    "tokens, sent",
+    [({"MNP_API_TOKEN_CEO": "ceo-token", "MNP_API_TOKEN": "fixture-token"}, "ceo-token"),
+     ({"MNP_API_TOKEN": "fixture-token"}, "fixture-token")],
+    ids=["ceo_token_first", "fallback"],
+)
+def test_moneypenny_counter_is_read_from_the_series_report(monkeypatch, tokens, sent):
+    """The counter and the drafts' numbers come from the series report for the year, with the CEO's token.
+
+    Metis holds MNP_API_TOKEN_CEO and MNP_API_TOKEN_LINA but no MNP_API_TOKEN.
+    """
+    numbers = load_script("moneypenny_numbers_reader", "moneypenny_numbers.py")
     seen = []
 
     def urlopen(request, timeout):
         seen.append((request.full_url, request.get_header("Authorization"), timeout))
-        body = {"series": "backoffice", "year": 2026, "last_number": 26046, "reserved": ["26046-410210"]}
+        body = {"series": "backoffice", "year": 2026, "last_number": 26046, "reserved": ["26046-410210"],
+                "issued": ["26044", "26045-410210"], "cancelled": ["26045-410210"]}
         return io.BytesIO(json.dumps(body).encode())
 
     monkeypatch.setenv("MNP_API_URL", "https://mnp.example.invalid/")
-    monkeypatch.setenv("MNP_API_TOKEN", "fixture-token")
+    monkeypatch.delenv("MNP_API_TOKEN_CEO", raising=False)
+    for name, value in tokens.items():
+        monkeypatch.setenv(name, value)
     monkeypatch.setattr("urllib.request.urlopen", urlopen)
-    assert gen.moneypenny_series(2026) == {"last_number": 26046, "reserved": ["26046-410210"], "cancelled": []}
+    assert numbers.series(2026) == {"last_number": 26046, "reserved": ["26046-410210"],
+                                    "issued": ["26044", "26045-410210"], "cancelled": ["26045-410210"]}
     assert seen == [("https://mnp.example.invalid/v1/documents/series/?series=backoffice&year=2026",
-                     "Bearer fixture-token", 20)]
+                     f"Bearer {sent}", 20)]
 
 
 def test_next_number_cli_refuses_without_moneypenny(drive, tmp_path, monkeypatch, capsys):
@@ -231,14 +244,14 @@ def test_next_number_cli_refuses_without_moneypenny(drive, tmp_path, monkeypatch
     gen = load_script("generate_invoice_refusal", "generate-invoice.py")
     monkeypatch.setattr(gen, "OUTPUT_DIR", tmp_path)
     monkeypatch.delenv("MNP_API_URL", raising=False)
-    monkeypatch.setenv("MNP_API_TOKEN", "fixture-token")
+    monkeypatch.setenv("MNP_API_TOKEN_CEO", "fixture-token")
     monkeypatch.setattr(sys, "argv", ["generate-invoice.py", "--next-number", "--year", "26"])
     with pytest.raises(SystemExit) as exit_info:
         gen._cli()
     assert exit_info.value.code == 1
     captured = capsys.readouterr()
     assert captured.out == ""
-    assert "Refused: MNP_API_URL and MNP_API_TOKEN must be set" in captured.err
+    assert "Refused: MNP_API_URL and MNP_API_TOKEN_CEO (or MNP_API_TOKEN) must be set" in captured.err
 
 
 @pytest.mark.parametrize(
@@ -283,13 +296,20 @@ def test_number_of_a_cancelled_lina_draft_is_in_use(generator, moneypenny_cancel
     assert generator.number_in_use("26046") is None
 
 
-def test_number_counts_as_in_use_when_moneypenny_cannot_be_read(generator, monkeypatch):
+def test_number_moneypenny_issued_is_in_use(generator, moneypenny_issued):
+    """An approved Lina draft's number is refused although no top-level Drive folder carries it."""
+    moneypenny_issued[2026] = ["26044-410210"]
+    assert "was issued by Moneypenny as 26044-410210" in generator.number_in_use("26044")
+    assert generator.number_in_use("26043") is None
+
+
+def test_number_counts_as_in_use_when_moneypenny_cannot_be_read(generator, moneypenny_report, monkeypatch):
     """Filing refuses rather than risk a number a Lina draft may hold."""
 
     def unreadable(year):
         raise RuntimeError("MNP_API_URL and MNP_API_TOKEN must be set to read Moneypenny's invoice counter")
 
-    monkeypatch.setattr(generator, "moneypenny_series", unreadable)
+    monkeypatch.setattr(moneypenny_report, "series", unreadable)
     assert "cannot be checked against Moneypenny's drafts" in generator.number_in_use("26048")
     with pytest.raises(ValueError, match="cannot be checked against Moneypenny's drafts"):
         generator.generate_from_spec(nipo_spec("26048"))

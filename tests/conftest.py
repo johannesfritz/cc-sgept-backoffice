@@ -77,28 +77,44 @@ def moneypenny_cancelled() -> dict[int, list[str]]:
 
 
 @pytest.fixture
-def generator(
-    tmp_path: Path,
+def moneypenny_issued() -> dict[int, list[str]]:
+    """The numbers Moneypenny issued, by four-digit year; its report lists cancelled ones here too."""
+    return {}
+
+
+@pytest.fixture
+def moneypenny_report(
     monkeypatch: pytest.MonkeyPatch,
-    drive: FakeDrive,
     moneypenny: dict[int, int],
     moneypenny_reserved: dict[int, list[str]],
     moneypenny_cancelled: dict[int, list[str]],
+    moneypenny_issued: dict[int, list[str]],
+) -> types.ModuleType:
+    """Replace Moneypenny's series report with the fixtures above; return the patched moneypenny_numbers."""
+    numbers = load_script("moneypenny_numbers", "moneypenny_numbers.py")
+    monkeypatch.setitem(sys.modules, "moneypenny_numbers", numbers)
+    monkeypatch.setattr(
+        numbers,
+        "series",
+        lambda year: {
+            "last_number": moneypenny.get(year, 0),
+            "reserved": moneypenny_reserved.get(year, []),
+            "issued": moneypenny_issued.get(year, []) + moneypenny_cancelled.get(year, []),
+            "cancelled": moneypenny_cancelled.get(year, []),
+        },
+    )
+    return numbers
+
+
+@pytest.fixture
+def generator(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, drive: FakeDrive, moneypenny_report: types.ModuleType
 ) -> types.ModuleType:
     """The invoice generator, writing into an empty temporary invoicing folder, with a fake Moneypenny series."""
     gen = load_script("generate_invoice", "generate-invoice.py")
     out = tmp_path / "invoicing"
     out.mkdir()
     monkeypatch.setattr(gen, "OUTPUT_DIR", out)
-    monkeypatch.setattr(
-        gen,
-        "moneypenny_series",
-        lambda year: {
-            "last_number": moneypenny.get(year, 0),
-            "reserved": moneypenny_reserved.get(year, []),
-            "cancelled": moneypenny_cancelled.get(year, []),
-        },
-    )
     return gen
 
 

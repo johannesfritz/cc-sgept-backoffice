@@ -1,5 +1,14 @@
 # Change log
 
+## 2026-10-27: Every Drive upload reads Moneypenny first, with the CEO's token (JF-4429)
+
+- New `scripts/moneypenny_numbers.py` reads Moneypenny's back-office series report for the generator and for `gdrive_upload.py`. It uses `MNP_API_TOKEN_CEO` and falls back to `MNP_API_TOKEN`. Metis holds `MNP_API_URL`, `MNP_API_TOKEN_CEO` and `MNP_API_TOKEN_LINA`, but no `MNP_API_TOKEN`. The generator issues for the CEO.
+- `scripts/gdrive_upload.py`: `_sync_api` and `upload_invoice_files` check Moneypenny immediately before touching Drive. They raise `ValueError`, uploading nothing, for a number a Lina draft holds, a number Moneypenny issued or cancelled, or any number while Moneypenny cannot be read. Its command line, which the handler's STEP F runs, prints `Refused: …` and exits 1. This covers STEP F, `/invoice-gdrive-sync` and filing alike.
+- The handler always generates with `--no-sync` and uploads at STEP F, which can be hours later. Before this change nothing checked in between. Now the remaining window is the seconds between the check and the upload.
+- `number_in_use` and the upload check also refuse numbers Moneypenny issued. Moneypenny files an approved draft at the top of the Drive invoicing folder, where the generator's listing sees it, but an invoice later moved into a grouping folder such as GTA leaves that listing. The upload check needs `issued` in any case: a Lina draft approved before STEP F has left `reserved`. Generator invoices reach Moneypenny as deals, not documents, so the generator's own numbers never appear in `issued`.
+- `prompts/invoice-handler.md` STEP F: on `Refused`, the handler's invoice yields and is renumbered, because the draft the CEO saw was internal. `commands/invoice-gdrive-sync.md` states the refusal.
+- Tests: `tests/test_sync_api.py` covers the STEP F command line refusing a held number, `/invoice-gdrive-sync` through the generator refusing an issued number, and `upload_invoice_files` refusing when Moneypenny cannot be read. `tests/test_invoice_numbering.py` covers the CEO token and its fallback, and an issued number in use. The fake series report is now one `moneypenny_report` fixture. 42 tests pass (37 before).
+
 ## 2026-10-27: `--next-number` and `number_in_use` also read Moneypenny (JF-4429)
 
 - `scripts/generate-invoice.py`: Moneypenny now reserves an invoice's number when Lina drafts it, before any folder exists. `next_invoice_number` therefore takes the maximum of the local folder, the Drive folder and Moneypenny's back-office counter (`GET /v1/documents/series/`, `last_number`). `number_in_use`, which filing and a number the CEO names both pass through, also refuses a number an open Lina draft holds (the report's `reserved`) or a cancelled draft's void number (`cancelled`), both compared by sequence, and refuses when Moneypenny cannot be read. This is a stopgap until the generator is retired (JF-4217, #1).

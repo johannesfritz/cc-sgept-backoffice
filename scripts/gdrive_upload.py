@@ -10,6 +10,10 @@ Overwrite-in-place semantics:
     Otherwise a new folder 'YYMMDD [NIPO ]{ABBREV} {NUMBER}' is created.
   - Any existing SGEPT-invoice{NUMBER}.* files in that folder are deleted
     before the fresh copies are placed. No version drift.
+
+Every upload first reads Moneypenny and refuses, with ValueError, a number a
+Lina draft holds or Moneypenny issued or cancelled, and any number when
+Moneypenny cannot be read (moneypenny_numbers.refusal).
 """
 
 from __future__ import annotations
@@ -24,6 +28,9 @@ GDRIVE_FOLDER_ID_ROOT = "19bPRghIb2L3cdxZzIattO65uM5En6dHM"
 
 # The mcp-google-workspace service account credential.
 _SCRIPT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(_SCRIPT_DIR))
+import moneypenny_numbers  # noqa: E402  (a sibling script, found through the path above)
+
 _REPO_ROOT = _SCRIPT_DIR.parent
 _CLAUDE_SETUP_ROOT = _REPO_ROOT.parent
 SERVICE_ACCOUNT_PATH = _CLAUDE_SETUP_ROOT / "mcp-google-workspace" / "service-account.json"
@@ -45,7 +52,8 @@ def sync_to_gdrive(
 ):
     """Upload .docx + .pdf to the Drive invoicing folder through the Drive API.
 
-    Returns the URL of the Drive folder.
+    Returns the URL of the Drive folder. Raises ValueError, uploading nothing,
+    when Moneypenny holds the number or cannot be read.
     """
     inv_num = str(invoice_number).replace('-', '').strip()
 
@@ -115,6 +123,13 @@ def list_invoice_folders() -> list[str]:
 
 # ----------------------------------------------------------------- Drive API
 
+def _refuse_held_number(inv_num: str) -> None:
+    """Raise ValueError when Moneypenny holds the number or cannot be read, just before an upload."""
+    reason = moneypenny_numbers.refusal(inv_num)
+    if reason:
+        raise ValueError(reason)
+
+
 def _open_drive():
     """Return a Drive v3 service for the service account, impersonating the invoicing owner."""
     if not SERVICE_ACCOUNT_PATH.exists():
@@ -166,9 +181,11 @@ def upload_invoice_files(inv_num: str, abbrev: str, is_nipo: bool, paths: list[P
 
     Reuses the folder ending in ' {inv_num}' or creates 'YYMMDD [NIPO ]{abbrev} {inv_num}'.
     Unlike _sync_api, nothing already in the folder is deleted or renamed.
+    Raises ValueError, uploading nothing, when Moneypenny holds the number.
     """
     from googleapiclient.http import MediaFileUpload
 
+    _refuse_held_number(inv_num)
     drive = _open_drive()
     folder_id, folder_name = _reuse_or_create_folder(drive, inv_num, abbrev, is_nipo)
     for path in paths:
@@ -187,9 +204,13 @@ def upload_invoice_files(inv_num: str, abbrev: str, is_nipo: bool, paths: list[P
 def _sync_api(
     docx_path: Path, pdf_path: Path, inv_num: str, abbrev: str, is_nipo: bool,
 ) -> str:
-    """Reuse or create the Drive folder for inv_num, replace its SGEPT-invoice files, return its URL."""
+    """Reuse or create the Drive folder for inv_num, replace its SGEPT-invoice files, return its URL.
+
+    Raises ValueError, changing nothing on Drive, when Moneypenny holds the number.
+    """
     from googleapiclient.http import MediaFileUpload
 
+    _refuse_held_number(inv_num)
     drive = _open_drive()
     folder_id, folder_name = _reuse_or_create_folder(drive, inv_num, abbrev, is_nipo)
 
@@ -234,5 +255,8 @@ if __name__ == "__main__":
     ap.add_argument('--nipo', action='store_true', help="Include 'NIPO' in folder name")
     ap.add_argument('--docx', type=Path, required=True, help="Source .docx path")
     args = ap.parse_args()
-    out = sync_to_gdrive(args.number, args.abbrev, is_nipo=args.nipo, docx_path=args.docx)
+    try:
+        out = sync_to_gdrive(args.number, args.abbrev, is_nipo=args.nipo, docx_path=args.docx)
+    except ValueError as err:
+        ap.exit(1, f"Refused: {err}\n")
     print(f"DRIVE_OUTPUT: {out}")

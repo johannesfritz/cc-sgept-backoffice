@@ -19,6 +19,9 @@ from pathlib import Path
 # Resolve through any symlinks so the canonical locations are used regardless
 # of whether the script is accessed via its real path or a symlink in jf-ceo/.
 SCRIPT_PATH = Path(__file__).resolve()
+sys.path.insert(0, str(SCRIPT_PATH.parent))
+import moneypenny_numbers  # noqa: E402  (a sibling script, found through the path above)
+
 REPO_DIR = SCRIPT_PATH.parent.parent          # claude-setup/cc-sgept-backoffice
 JF_PRIVATE_ROOT = REPO_DIR.parent.parent      # jf-private
 DATA_DIR = REPO_DIR / "config"
@@ -754,37 +757,6 @@ def _numbers_by_side(year: int | None) -> tuple[dict[str, list[str]], dict[str, 
     return sides[0], sides[1], yy
 
 
-def moneypenny_series(year: int) -> dict:
-    """Return Moneypenny's back-office series report for a four-digit year.
-
-    Its `last_number` is the counter Lina's invoice drafts raise, its
-    `reserved` lists the numbers open drafts hold, and its `cancelled` lists
-    the numbers of rejected drafts Moneypenny keeps as void. Raises RuntimeError when
-    MNP_API_URL or MNP_API_TOKEN is unset or the service cannot be read, so no
-    number is given that a Lina draft may hold.
-    """
-    import http.client
-    import urllib.request
-
-    base, token = os.environ.get("MNP_API_URL", "").rstrip("/"), os.environ.get("MNP_API_TOKEN", "")
-    if not base or not token:
-        raise RuntimeError("MNP_API_URL and MNP_API_TOKEN must be set to read Moneypenny's invoice counter")
-    request = urllib.request.Request(
-        f"{base}/v1/documents/series/?series=backoffice&year={year}",
-        headers={"Accept": "application/json", "Authorization": f"Bearer {token}"},
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=20) as response:
-            report = json.load(response)
-        return {
-            "last_number": int(report["last_number"]),
-            "reserved": [str(n) for n in report.get("reserved", [])],
-            "cancelled": [str(n) for n in report.get("cancelled", [])],
-        }
-    except (OSError, http.client.HTTPException, ValueError, KeyError, TypeError) as err:
-        raise RuntimeError(f"Cannot read Moneypenny's invoice counter: {err}") from err
-
-
 def next_invoice_number(year: int | None = None) -> str:
     """Return the next free invoice number for a year (two-digit YY, default current year).
 
@@ -795,7 +767,7 @@ def next_invoice_number(year: int | None = None) -> str:
     number Moneypenny has given out.
     """
     local, drive, yy = _numbers_by_side(year)
-    highest = max({int(n) for n in (*local, *drive)} | {moneypenny_series(2000 + int(yy))["last_number"]})
+    highest = max({int(n) for n in (*local, *drive)} | {moneypenny_numbers.series(2000 + int(yy))["last_number"]})
     return str(highest + 1) if highest > int(yy) * 1000 else f"{yy}001"
 
 
@@ -804,8 +776,8 @@ def number_in_use(number: str, target_folder: str | None = None) -> str | None:
 
     A number is taken when a local folder other than target_folder ends with it,
     when a Drive folder ends with it and no local folder does (an invoice made
-    elsewhere), or when Moneypenny holds it for a Lina draft or keeps it as a
-    cancelled draft's void number. The local folder
+    elsewhere), or when Moneypenny holds it for a Lina draft, keeps it as a
+    cancelled draft's void number or issued it. The local folder
     named target_folder never counts, so the same invoice can be regenerated.
     When Moneypenny cannot be read, the number counts as taken.
     """
@@ -818,16 +790,10 @@ def number_in_use(number: str, target_folder: str | None = None) -> str | None:
     if number not in local and number in drive:
         return f"Invoice number {number} is already used on Drive by folder '{drive[number][0]}'"
     try:
-        report = moneypenny_series(2000 + int(number[:2]))
+        report = moneypenny_numbers.series(2000 + int(number[:2]))
     except RuntimeError as err:
         return f"Invoice number {number} cannot be checked against Moneypenny's drafts: {err}"
-    held = [n for n in report["reserved"] if n.split("-")[0] == number]
-    if held:
-        return f"Invoice number {number} is held by a Lina draft in Moneypenny as {held[0]}"
-    void = [n for n in report["cancelled"] if n.split("-")[0] == number]
-    if void:
-        return f"Invoice number {number} belongs to a cancelled Lina draft that Moneypenny keeps as {void[0]}"
-    return None
+    return moneypenny_numbers.holder(number, report)
 
 
 def register_invoice(

@@ -162,7 +162,8 @@ If the amendment is trivial text-only (e.g. "typo in street"), prefer a minimal 
    python3 /home/deploy/jf-private/claude-setup/cc-sgept-backoffice/scripts/gdrive_upload.py \
      --number NUMBER --abbrev ABBREV --docx <docx_path> [--nipo]
    ```
-   If this fails with a Drive-API-disabled error, capture the error; do NOT abort. Proceed to git commit and include the failure note in the reply (CEO resolves manually via `/invoice-gdrive-sync`).
+   The upload reads Moneypenny first. A Lina draft may have taken this number since STEP D, because Moneypenny does not see a `--no-sync` folder. If the upload exits 1 with `Refused: …` on stderr, nothing reached Drive. Your invoice yields: the draft you sent the CEO was internal, so renumber it. Do not commit the old folder. Delete it, take a new number with `--next-number`, regenerate under it with `--no-sync`, verify as in STEP D, and send the CEO the renumbered draft with the reason, for a fresh "approve". If the refusal says Moneypenny cannot be read, stop and report it; pick no number another way.
+   If the upload fails with a Drive-API-disabled error, capture the error; do NOT abort. Proceed to git commit and include the failure note in the reply (CEO resolves manually via `/invoice-gdrive-sync`).
 3. **Git commit + push** (both repos if applicable):
    ```bash
    cd /home/deploy/jf-private
