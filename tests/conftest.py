@@ -83,12 +83,19 @@ def moneypenny_issued() -> dict[int, list[str]]:
 
 
 @pytest.fixture
+def moneypenny_pre_engine() -> dict[int, list[str]]:
+    """The numbers Moneypenny recorded before it numbered invoices, such as the generator's own, by four-digit year."""
+    return {}
+
+
+@pytest.fixture
 def moneypenny_report(
     monkeypatch: pytest.MonkeyPatch,
     moneypenny: dict[int, int],
     moneypenny_reserved: dict[int, list[str]],
     moneypenny_cancelled: dict[int, list[str]],
     moneypenny_issued: dict[int, list[str]],
+    moneypenny_pre_engine: dict[int, list[str]],
 ) -> types.ModuleType:
     """Replace Moneypenny's series report with the fixtures above; return the patched moneypenny_numbers."""
     numbers = load_script("moneypenny_numbers", "moneypenny_numbers.py")
@@ -99,8 +106,11 @@ def moneypenny_report(
         lambda year: {
             "last_number": moneypenny.get(year, 0),
             "reserved": moneypenny_reserved.get(year, []),
-            "issued": moneypenny_issued.get(year, []) + moneypenny_cancelled.get(year, []),
+            "issued": moneypenny_issued.get(year, [])
+            + moneypenny_cancelled.get(year, [])
+            + moneypenny_pre_engine.get(year, []),
             "cancelled": moneypenny_cancelled.get(year, []),
+            "pre_engine": moneypenny_pre_engine.get(year, []),
         },
     )
     return numbers

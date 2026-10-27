@@ -21,8 +21,10 @@ def series(year: int) -> dict:
 
     Its `last_number` is the counter Lina's invoice drafts raise, its
     `reserved` lists the numbers open drafts hold, its `issued` lists the
-    numbers Moneypenny issued or cancelled, and its `cancelled` lists the
-    cancelled ones among them. Raises RuntimeError when MNP_API_URL or the
+    numbers Moneypenny records as issued or cancelled, its `cancelled` lists
+    the cancelled ones among them, and its `pre_engine` lists the issued
+    numbers recorded before Moneypenny numbered invoices, such as the
+    generator's own invoices from the stocktake. Raises RuntimeError when MNP_API_URL or the
     token is unset or the service cannot be read.
     """
     base = os.environ.get("MNP_API_URL", "").rstrip("/")
@@ -43,6 +45,7 @@ def series(year: int) -> dict:
             "reserved": [str(n) for n in report.get("reserved", [])],
             "issued": [str(n) for n in report.get("issued", [])],
             "cancelled": [str(n) for n in report.get("cancelled", [])],
+            "pre_engine": [str(n) for n in report["pre_engine"]],
         }
     except (OSError, http.client.HTTPException, ValueError, KeyError, TypeError) as err:
         raise RuntimeError(f"Cannot read Moneypenny's invoice counter: {err}") from err
@@ -53,18 +56,21 @@ def holder(number: str, report: dict) -> str | None:
 
     A number counts as held when an open Lina draft reserves it, when
     Moneypenny keeps it as a cancelled draft's void number, or when Moneypenny
-    issued it. Both `YYNNN` and `YYNNN-NNNNNN` compare by their sequence.
+    issued it. A number recorded before Moneypenny numbered invoices
+    (`pre_engine`) is the generator's own, issued or cancelled, and does not
+    count. Both `YYNNN` and `YYNNN-NNNNNN`
+    compare by their sequence.
     """
     sequence = number.split("-")[0]
     held = [n for n in report["reserved"] if n.split("-")[0] == sequence]
     if held:
         return f"Invoice number {sequence} is held by a Lina draft in Moneypenny as {held[0]}"
-    void = [n for n in report["cancelled"] if n.split("-")[0] == sequence]
+    recorded = [n for n in report["issued"] if n.split("-")[0] == sequence and n not in report["pre_engine"]]
+    void = [n for n in recorded if n in report["cancelled"]]
     if void:
         return f"Invoice number {sequence} belongs to a cancelled Lina draft that Moneypenny keeps as {void[0]}"
-    issued = [n for n in report.get("issued", []) if n.split("-")[0] == sequence]
-    if issued:
-        return f"Invoice number {sequence} was issued by Moneypenny as {issued[0]}"
+    if recorded:
+        return f"Invoice number {sequence} was issued by Moneypenny as {recorded[0]}"
     return None
 
 

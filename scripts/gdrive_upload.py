@@ -247,7 +247,8 @@ def _sync_api(
     return url
 
 
-if __name__ == "__main__":
+def _cli() -> None:
+    """Upload one invoice's .docx and .pdf; print `Refused: …` and exit 1 when the number may not be uploaded."""
     import argparse
     ap = argparse.ArgumentParser(description="Upload SGEPT invoice to Google Drive")
     ap.add_argument('--number', required=True, help="5-digit invoice number")
@@ -260,3 +261,7 @@ if __name__ == "__main__":
     except ValueError as err:
         ap.exit(1, f"Refused: {err}\n")
     print(f"DRIVE_OUTPUT: {out}")
+
+
+if __name__ == "__main__":
+    _cli()

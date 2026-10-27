@@ -225,7 +225,7 @@ def test_moneypenny_counter_is_read_from_the_series_report(monkeypatch, tokens, 
     def urlopen(request, timeout):
         seen.append((request.full_url, request.get_header("Authorization"), timeout))
         body = {"series": "backoffice", "year": 2026, "last_number": 26046, "reserved": ["26046-410210"],
-                "issued": ["26044", "26045-410210"], "cancelled": ["26045-410210"]}
+                "issued": ["26001", "26044", "26045-410210"], "cancelled": ["26045-410210"], "pre_engine": ["26001"]}
         return io.BytesIO(json.dumps(body).encode())
 
     monkeypatch.setenv("MNP_API_URL", "https://mnp.example.invalid/")
@@ -234,7 +234,8 @@ def test_moneypenny_counter_is_read_from_the_series_report(monkeypatch, tokens, 
         monkeypatch.setenv(name, value)
     monkeypatch.setattr("urllib.request.urlopen", urlopen)
     assert numbers.series(2026) == {"last_number": 26046, "reserved": ["26046-410210"],
-                                    "issued": ["26044", "26045-410210"], "cancelled": ["26045-410210"]}
+                                    "issued": ["26001", "26044", "26045-410210"], "cancelled": ["26045-410210"],
+                                    "pre_engine": ["26001"]}
     assert seen == [("https://mnp.example.invalid/v1/documents/series/?series=backoffice&year=2026",
                      f"Bearer {sent}", 20)]
 
@@ -301,6 +302,13 @@ def test_number_moneypenny_issued_is_in_use(generator, moneypenny_issued):
     moneypenny_issued[2026] = ["26044-410210"]
     assert "was issued by Moneypenny as 26044-410210" in generator.number_in_use("26044")
     assert generator.number_in_use("26043") is None
+
+
+def test_generator_invoice_imported_into_moneypenny_stays_free(generator, moneypenny_pre_engine):
+    """The stocktake recorded the generator's own invoices, such as 26033, as documents in Moneypenny."""
+    moneypenny_pre_engine[2026] = ["26033", "26015-410200"]
+    assert generator.number_in_use("26033") is None
+    assert generator.number_in_use("26015") is None
 
 
 def test_number_counts_as_in_use_when_moneypenny_cannot_be_read(generator, moneypenny_report, monkeypatch):
