@@ -528,9 +528,9 @@ def generate_standard_invoice(
     def amount_tab(para_el):
         """Right-align the text after one tab on the Amount column's right edge.
 
-        9026 twips from the left margin is the template's own right tab stop and
-        where its "Amount" header ended, so a long description no longer pushes
-        the amount past the line end, as six default tabs did.
+        9026 twips from the left margin is where the template's "Amount" header
+        ended, so a long description no longer pushes the amount past the line
+        end, as six default tabs did.
         """
         Paragraph(para_el, None).paragraph_format.tab_stops.add_tab_stop(
             Twips(9026), WD_TAB_ALIGNMENT.RIGHT)

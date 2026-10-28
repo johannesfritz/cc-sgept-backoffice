@@ -3,9 +3,9 @@
 ## 2026-10-28: a standard invoice's amount stays on its description's line (JCC-9404)
 
 - Cause: a deliverable line reached the Amount column through six default tab stops, so a description longer than about 30 characters pushed the amount onto a second line. Found on 27 October drafting 26045, which was fixed by hand.
-- `scripts/generate-invoice.py`: on a deliverable invoice, the Amount header, each line and the invoice total carry one right-aligned tab stop at 9026 twips, the template's own right tab stop and where the Amount header ended. One tab reaches it, so a 50-character description keeps its amount on the same line, and amounts align on their right edge. Hourly invoices are unchanged. Issued invoices and their folders are untouched.
+- `scripts/generate-invoice.py`: on a deliverable invoice, the Amount header, each line and the invoice total carry one right-aligned tab stop at 9026 twips, where the Amount header ended. One tab reaches it, so a 50-character description keeps its amount on the same line, and amounts align on their right edge. Hourly invoices are unchanged. Issued invoices and their folders are untouched.
 - `tests/test_standard_amount_column.py`: the header, a short and a 50-character line and the total share the one right tab; hourly columns are unchanged. The first test fails on main.
-- Verification: 30 tests pass. A 50-character and a 38-character description rendered through LibreOffice keep their amounts on the same line; before the change both wrapped. Microsoft Word, which `docx2pdf` uses in production, was not rendered: the conversion did not complete in the overnight session.
+- Verification: 30 tests pass. A 50-character and a 38-character description rendered through LibreOffice keep their amounts on the same line; before the change both wrapped. Production converts through Microsoft Word (`docx2pdf`) on macOS and LibreOffice on Linux (`scripts/pdf_convert.py`); Word was not rendered and is owed before merge. A description of about 65 characters or more meets its amount; that case is not yet rendered.
 
 ## 2026-10-27: Count account-suffixed invoice folders in the ledger (JF-4340)
 
