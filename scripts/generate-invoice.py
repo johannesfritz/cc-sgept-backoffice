@@ -487,7 +487,9 @@ def generate_standard_invoice(
             to the Google Drive invoicing folder with standardized names.
     """
     from docx import Document
-    from docx.shared import Emu
+    from docx.enum.text import WD_TAB_ALIGNMENT
+    from docx.shared import Emu, Twips
+    from docx.text.paragraph import Paragraph
     from copy import deepcopy
     from docx.oxml import OxmlElement
     from docx.oxml.ns import qn
@@ -522,6 +524,16 @@ def generate_standard_invoice(
 
     def delete_para(para):
         para._element.getparent().remove(para._element)
+
+    def amount_tab(para_el):
+        """Right-align the text after one tab on the Amount column's right edge.
+
+        9026 twips from the left margin is the template's own right tab stop and
+        where its "Amount" header ended, so a long description no longer pushes
+        the amount past the line end, as six default tabs did.
+        """
+        Paragraph(para_el, None).paragraph_format.tab_stops.add_tab_stop(
+            Twips(9026), WD_TAB_ALIGNMENT.RIGHT)
 
     def make_para_el(text, ref_el):
         """Create paragraph XML element with text, copying format from ref."""
@@ -616,8 +628,10 @@ def generate_standard_invoice(
         set_text(p_col_headers,
                  f"Description\t\t\tHours\tRate ({currency})\t\tTotal ({currency})")
     else:
-        set_text(p_col_headers,
-                 f"Description\t\t\t\t\t\tAmount ({currency})")
+        amount_tab(p_col_headers._element)
+        amount_tab(item_row_el)
+        amount_tab(p_total._element)
+        set_text(p_col_headers, f"Description\tAmount ({currency})")
 
     # === Item rows: delete old, insert new ===
     for p in p_item_rows:
@@ -630,13 +644,13 @@ def generate_standard_invoice(
                     f"{format_amount(item.get('rate', 0))}\t\t"
                     f"{format_amount(item.get('total', 0))}")
         else:
-            text = f"{item['description']}\t\t\t\t\t\t{format_amount(item['amount'])}"
+            text = f"{item['description']}\t{format_amount(item['amount'])}"
         new_p = make_para_el(text, item_row_el)
         p_total._element.addprevious(new_p)
 
     # === Total line ===
     clear_runs(p_total)
-    r = p_total.add_run("Invoice total:\t\t\t\t\t\t")
+    r = p_total.add_run("Invoice total:" + ("\t\t\t\t\t\t" if items_type == 'hours' else "\t"))
     r.bold = True
     r = p_total.add_run(format_amount(total))
     r.bold = True
