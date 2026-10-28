@@ -42,7 +42,11 @@ def test_long_descriptions_wrap_inside_their_own_column(generator):
         ["Short licence fee", "1,200.00"], [LONG, "12,000.00"], [VERY_LONG, "-500.00"]]
     tbl = table._tbl
     # The table runs from the Indented text edge (2835) to the amount tab (9026).
-    assert tbl.find(qn("w:tblPr")).find(qn("w:tblInd")).get(qn("w:w")) == "2835"
+    tbl_pr = tbl.find(qn("w:tblPr"))
+    assert tbl_pr.find(qn("w:tblInd")).get(qn("w:w")) == "2835"
+    # Zero cell margins override the template's default Normal Table (108 twips each side).
+    margins = tbl_pr.find(qn("w:tblCellMar"))
+    assert [margins.find(qn(f"w:{side}")).get(qn("w:w")) for side in ("left", "right")] == ["0", "0"]
     assert [int(c.get(qn("w:w"))) for c in tbl.tblGrid.findall(qn("w:gridCol"))] == [4717, 1474]
     for row in table.rows:
         description, amount = row.cells
