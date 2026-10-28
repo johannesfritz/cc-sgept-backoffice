@@ -12,6 +12,8 @@ The command:
 
 Note: `/invoice` and `/invoice-nipo` already sync to Drive automatically on first generation. This command is only for re-syncs.
 
+Before uploading, the sync reads Moneypenny. It refuses, uploading nothing, a number a Lina draft holds or Moneypenny issued or cancelled, and any number while Moneypenny cannot be read. It then raises `ValueError` with the reason. Stop and report that reason. Do not rename the folder or pick another number yourself.
+
 ## Required Information
 
 Collect via AskUserQuestion:

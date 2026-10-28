@@ -60,7 +60,7 @@ Once an invoice JFM workflow YAML exists at `cc-project-mgmt-team/workflows/invo
 python3 /home/deploy/jf-private/claude-setup/cc-sgept-backoffice/scripts/generate-invoice.py --next-number
 ```
 
-The single stdout line is the next number: the highest number across the Drive invoicing folder and the local invoicing folder, plus 1. Its stderr lists numbers present on one side only and numbers used by more than one folder; mention any finding in the reply to the CEO. (If the CEO specified a number explicitly in their request, use that and skip this step.)
+The single stdout line is the next number: the highest number across the Drive invoicing folder, the local invoicing folder and Moneypenny's back-office counter (which covers numbers Lina's drafts hold), plus 1. If stdout is empty and stderr says `Refused: …`, stop, tell the CEO the refusal in one line, and pick no number another way. Its stderr lists numbers present on one side only and numbers used by more than one folder; mention any finding in the reply to the CEO. (If the CEO specified a number explicitly in their request, use that and skip this step.)
 
 ## STEP B.0 — Extract everything you can in one pass
 
@@ -162,7 +162,10 @@ If the amendment is trivial text-only (e.g. "typo in street"), prefer a minimal 
    python3 /home/deploy/jf-private/claude-setup/cc-sgept-backoffice/scripts/gdrive_upload.py \
      --number NUMBER --abbrev ABBREV --docx <docx_path> [--nipo]
    ```
-   If this fails with a Drive-API-disabled error, capture the error; do NOT abort. Proceed to git commit and include the failure note in the reply (CEO resolves manually via `/invoice-gdrive-sync`).
+   The upload reads Moneypenny first. If it exits 1 with `Refused: …` on stderr, nothing reached Drive. Skip steps 3 and 4, and leave the JFM, if one exists, at `cos:awaiting-approval`.
+   - **The reason says the number "cannot be checked":** Moneypenny cannot be read. Keep the local folder and commit nothing. Reply that filing waits until Moneypenny can be read. Pick no number another way.
+   - **Any other reason:** Moneypenny holds the number. A Lina draft took it after STEP D, because Moneypenny does not see a `--no-sync` folder. Your invoice yields, since the draft the CEO saw was internal. Delete the local folder. Take a new number with `--next-number`. Write it as `invoice_number` in the JFM spec and in the manifest under `/home/deploy/metis-jobs/deliverables/<JFM>/`, so the next "approve" reads the new number. Regenerate with `--no-sync`, verify as in STEP D, and send the CEO the renumbered draft with the reason, for a fresh "approve".
+   If the upload fails with a Drive-API-disabled error, capture the error; do NOT abort. Proceed to git commit and include the failure note in the reply (CEO resolves manually via `/invoice-gdrive-sync`).
 3. **Git commit + push** (both repos if applicable):
    ```bash
    cd /home/deploy/jf-private
