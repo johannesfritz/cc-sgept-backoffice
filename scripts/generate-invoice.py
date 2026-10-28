@@ -490,10 +490,13 @@ def generate_standard_invoice(
             to the Google Drive invoicing folder with standardized names.
     """
     from docx import Document
-    from docx.shared import Emu
+    from docx.enum.text import WD_TAB_ALIGNMENT
+    from docx.shared import Emu, Twips
+    from docx.text.paragraph import Paragraph
     from copy import deepcopy
-    from docx.oxml import OxmlElement
-    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement, parse_xml
+    from docx.oxml.ns import nsdecls, qn
+    from xml.sax.saxutils import escape
 
     bank_data, _ = load_config()
 
@@ -525,6 +528,46 @@ def generate_standard_invoice(
 
     def delete_para(para):
         para._element.getparent().remove(para._element)
+
+    def amount_tab(para_el):
+        """Right-align the text after one tab on the Amount column's right edge.
+
+        Used by the Amount header and the invoice total; the item lines sit in
+        item_table_el, which ends at the same edge. 9026 twips from the left
+        margin is where the template's "Amount" header ended.
+        """
+        Paragraph(para_el, None).paragraph_format.tab_stops.add_tab_stop(
+            Twips(9026), WD_TAB_ALIGNMENT.RIGHT)
+
+    def item_table_el(items):
+        """Borderless two-column table for deliverable lines.
+
+        It spans the Indented text's left edge (2835 twips) to the amount tab
+        (9026), so a long description wraps inside its own column and its
+        amount stays right-aligned under the header's.
+        """
+        widths = (4717, 1474)
+        def cell(width, text, align):
+            return (f'<w:tc><w:tcPr><w:tcW w:w="{width}" w:type="dxa"/></w:tcPr>'
+                    f'<w:p><w:pPr><w:pStyle w:val="Indented"/><w:ind w:left="0"/>'
+                    f'<w:jc w:val="{align}"/></w:pPr>'
+                    f'<w:r><w:t xml:space="preserve">{escape(text)}</w:t></w:r></w:p></w:tc>')
+        rows = ''.join(
+            '<w:tr><w:trPr><w:cantSplit/></w:trPr>'
+            + cell(widths[0], item['description'], 'left')
+            + cell(widths[1], format_amount(item['amount']), 'right')
+            + '</w:tr>'
+            for item in items)
+        no_margin = ''.join(f'<w:{side} w:w="0" w:type="dxa"/>'
+                            for side in ('top', 'left', 'bottom', 'right'))
+        no_border = ''.join(f'<w:{side} w:val="nil"/>' for side in
+                            ('top', 'left', 'bottom', 'right', 'insideH', 'insideV'))
+        return parse_xml(
+            f'<w:tbl {nsdecls("w")}><w:tblPr><w:tblW w:w="{sum(widths)}" w:type="dxa"/>'
+            f'<w:tblInd w:w="2835" w:type="dxa"/><w:tblBorders>{no_border}</w:tblBorders>'
+            f'<w:tblLayout w:type="fixed"/><w:tblCellMar>{no_margin}</w:tblCellMar></w:tblPr>'
+            f'<w:tblGrid><w:gridCol w:w="{widths[0]}"/><w:gridCol w:w="{widths[1]}"/></w:tblGrid>'
+            f'{rows}</w:tbl>')
 
     def make_para_el(text, ref_el):
         """Create paragraph XML element with text, copying format from ref."""
@@ -619,27 +662,27 @@ def generate_standard_invoice(
         set_text(p_col_headers,
                  f"Description\t\t\tHours\tRate ({currency})\t\tTotal ({currency})")
     else:
-        set_text(p_col_headers,
-                 f"Description\t\t\t\t\t\tAmount ({currency})")
+        amount_tab(p_col_headers._element)
+        amount_tab(p_total._element)
+        set_text(p_col_headers, f"Description\tAmount ({currency})")
 
     # === Item rows: delete old, insert new ===
     for p in p_item_rows:
         delete_para(p)
 
-    for item in items:
-        if items_type == 'hours':
+    if items_type == 'hours':
+        for item in items:
             text = (f"{item['description']}\t\t\t"
                     f"{item.get('hours', '')}\t"
                     f"{format_amount(item.get('rate', 0))}\t\t"
                     f"{format_amount(item.get('total', 0))}")
-        else:
-            text = f"{item['description']}\t\t\t\t\t\t{format_amount(item['amount'])}"
-        new_p = make_para_el(text, item_row_el)
-        p_total._element.addprevious(new_p)
+            p_total._element.addprevious(make_para_el(text, item_row_el))
+    else:
+        p_total._element.addprevious(item_table_el(items))
 
     # === Total line ===
     clear_runs(p_total)
-    r = p_total.add_run("Invoice total:\t\t\t\t\t\t")
+    r = p_total.add_run("Invoice total:" + ("\t\t\t\t\t\t" if items_type == 'hours' else "\t"))
     r.bold = True
     r = p_total.add_run(format_amount(total))
     r.bold = True

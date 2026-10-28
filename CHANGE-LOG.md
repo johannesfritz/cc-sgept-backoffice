@@ -1,5 +1,12 @@
 # Change log
 
+## 2026-10-28: a standard invoice's amount stays on its description's line (JCC-9404)
+
+- Cause: a deliverable line reached the Amount column through six default tab stops, so a description longer than about 30 characters pushed the amount onto a second line. Found on 27 October drafting 26045, which was fixed by hand.
+- `scripts/generate-invoice.py`: on a deliverable invoice, the Amount header and the invoice total carry one right-aligned tab stop at 9026 twips, where the Amount header ended. The lines sit in a borderless two-column table between them, from the indented text edge (2835 twips) to that stop: a description wraps inside its 4717-twip column, about 62 characters a line, and its amount stays right-aligned in the 1474-twip column on the description's first line. Hourly invoices are unchanged. Issued invoices and their folders are untouched.
+- `tests/test_standard_amount_column.py`: the header and the total share the one right tab; a short, a 50-character and a 120-character line sit in the table with left-aligned descriptions and right-aligned amounts; hourly columns are unchanged and have no table. The table test fails on main and on the tab-only version (b4d34ec).
+- Verification: 31 tests pass. LibreOffice render of 17-, 50-, 65-, 80- and 120-character descriptions: every amount's right edge sits 9026 twips from the margin, level with the header and total; the 65-, 80- and 120-character descriptions wrap inside their column. With tabs alone, the 80-character line ran into its amount and the 120-character line was justified across the page. Production converts through Microsoft Word (`docx2pdf`) on macOS and LibreOffice on Linux (`scripts/pdf_convert.py`); Word was not rendered and is owed before merge.
+
 ## 2026-10-27: Every Drive upload reads Moneypenny first, with the CEO's token (JF-4429)
 
 - New `scripts/moneypenny_numbers.py` reads Moneypenny's back-office series report for the generator and for `gdrive_upload.py`. It uses `MNP_API_TOKEN_CEO` and falls back to `MNP_API_TOKEN`. Metis holds `MNP_API_URL`, `MNP_API_TOKEN_CEO` and `MNP_API_TOKEN_LINA`, but no `MNP_API_TOKEN`. The generator issues for the CEO.
