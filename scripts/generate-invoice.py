@@ -811,9 +811,10 @@ def number_in_use(number: str, target_folder: str | None = None) -> str | None:
 
     A number is taken when a local folder other than target_folder carries it
     as its sequence, with or without a six-digit account suffix, when a Drive
-    folder carries it and no local folder does (an invoice made elsewhere), or when Moneypenny holds it for a Lina draft, keeps it as a
-    cancelled draft's void number or issued it. The local folder
-    named target_folder never counts, so the same invoice can be regenerated.
+    folder carries it and no local folder does (an invoice made elsewhere), or
+    when Moneypenny holds it for a Lina draft, keeps it as a cancelled draft's
+    void number or issued it. The local folder named target_folder never
+    counts, so the same invoice can be regenerated.
     When Moneypenny cannot be read, the number counts as taken.
     """
     if not re.fullmatch(r'\d{5}', number):
