@@ -1,7 +1,9 @@
-"""Unit test for gdrive_upload._sync_api against a fake Drive service (no network)."""
+"""Unit tests for gdrive_upload's Drive API paths against a fake Drive service (no network)."""
 import sys
 import types
 from pathlib import Path
+
+import pytest
 
 from conftest import load_script
 
@@ -66,7 +68,7 @@ def _install_fake_google(monkeypatch, files: FakeFiles) -> None:
         monkeypatch.setitem(sys.modules, name, mod)
 
 
-def test_sync_api_reuses_folder_and_replaces_files(tmp_path: Path, monkeypatch) -> None:
+def test_sync_api_reuses_folder_and_replaces_files(tmp_path: Path, monkeypatch, moneypenny_report) -> None:
     gdrive = load_script("gdrive_upload_sync_api", "gdrive_upload.py")
     monkeypatch.setattr(gdrive, "SERVICE_ACCOUNT_PATH", tmp_path)  # any existing path
     files = FakeFiles("260911 GTA Interos Inc. 26040")
@@ -83,3 +85,78 @@ def test_sync_api_reuses_folder_and_replaces_files(tmp_path: Path, monkeypatch) 
         ("upload", "SGEPT-invoice26040.docx"),
         ("upload", "SGEPT-invoice26040.pdf"),
     ]
+
+
+# moneypenny-before-upload (JF-4429): every upload path refuses a number Moneypenny holds.
+
+def _invoice_files(tmp_path: Path, number: str) -> Path:
+    """Write a local .docx with a fresher .pdf beside it, so no conversion runs; return the .docx."""
+    docx = tmp_path / f"Invoice-{number}-TEST.docx"
+    docx.write_bytes(b"d")
+    docx.with_suffix(".pdf").write_bytes(b"p")
+    return docx
+
+
+def test_step_f_upload_refuses_a_number_a_lina_draft_holds(
+    tmp_path, monkeypatch, capsys, moneypenny_report, moneypenny_reserved
+):
+    """The handler's STEP F command uploads nothing and prints Refused when a draft took the number meanwhile."""
+    moneypenny_reserved[2026] = ["26047-410210"]
+    gdrive = load_script("gdrive_upload_step_f", "gdrive_upload.py")
+    monkeypatch.setattr(gdrive, "SERVICE_ACCOUNT_PATH", tmp_path)  # any existing path
+    files = FakeFiles("unused")
+    _install_fake_google(monkeypatch, files)
+    docx = _invoice_files(tmp_path, "26047")
+    monkeypatch.setattr(sys, "argv", ["gdrive_upload.py", "--number", "26047", "--abbrev", "TEST", "--docx", str(docx)])
+    with pytest.raises(SystemExit) as exit_info:
+        gdrive._cli()
+    assert exit_info.value.code == 1
+    assert "Refused: Invoice number 26047 is held by a Lina draft in Moneypenny as 26047-410210" in capsys.readouterr().err
+    assert files.events == []
+
+
+def _real_drive(monkeypatch, tmp_path: Path, folder_name: str) -> FakeFiles:
+    """Put the real gdrive_upload, over a fake Drive service, where the generator imports it; return the fake files."""
+    gdrive = load_script("gdrive_upload", "gdrive_upload.py")
+    monkeypatch.setattr(gdrive, "SERVICE_ACCOUNT_PATH", tmp_path)  # any existing path
+    monkeypatch.setitem(sys.modules, "gdrive_upload", gdrive)
+    files = FakeFiles(folder_name)
+    _install_fake_google(monkeypatch, files)
+    return files
+
+
+def test_invoice_gdrive_sync_refuses_a_number_moneypenny_issued(tmp_path, monkeypatch, generator, moneypenny_issued):
+    """/invoice-gdrive-sync, through the generator's sync_to_gdrive, changes nothing on Drive."""
+    moneypenny_issued[2026] = ["26047"]
+    files = _real_drive(monkeypatch, tmp_path, "261027 TEST 26047")
+    docx = _invoice_files(generator.OUTPUT_DIR, "26047")
+    with pytest.raises(ValueError, match="was issued by Moneypenny as 26047"):
+        generator.sync_to_gdrive("26047", "TEST", docx_path=docx)
+    assert files.events == []
+
+
+def test_invoice_gdrive_sync_uploads_a_generator_invoice_moneypenny_imported(
+    tmp_path, monkeypatch, generator, moneypenny_pre_engine
+):
+    """A stocktake import of the generator's own invoice does not block its re-sync."""
+    moneypenny_pre_engine[2026] = ["26040"]
+    files = _real_drive(monkeypatch, tmp_path, "260911 GTA Interos Inc. 26040")
+    docx = _invoice_files(generator.OUTPUT_DIR, "26040")
+    assert generator.sync_to_gdrive("26040", "TEST", docx_path=docx).endswith("/F1")
+    assert ("upload", "SGEPT-invoice26040.pdf") in files.events
+
+
+def test_upload_refuses_when_moneypenny_cannot_be_read(tmp_path, monkeypatch, moneypenny_report):
+    """upload_invoice_files, which register_invoice uses, refuses rather than risk a held number."""
+
+    def unreadable(year):
+        raise RuntimeError("Cannot read Moneypenny's invoice counter: connection refused")
+
+    monkeypatch.setattr(moneypenny_report, "series", unreadable)
+    gdrive = load_script("gdrive_upload_unreadable", "gdrive_upload.py")
+    monkeypatch.setattr(gdrive, "SERVICE_ACCOUNT_PATH", tmp_path)  # any existing path
+    files = FakeFiles("unused")
+    _install_fake_google(monkeypatch, files)
+    with pytest.raises(ValueError, match="cannot be checked against Moneypenny's drafts"):
+        gdrive.upload_invoice_files("26047", "TEST", False, [_invoice_files(tmp_path, "26047")])
+    assert files.events == []

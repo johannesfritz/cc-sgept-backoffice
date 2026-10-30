@@ -12,7 +12,7 @@ Invariants every invoice must satisfy. Violations have produced broken invoices 
 
 ## Numbering
 
-- **Old generator numbers: 5 digits, no separator.** The old generator issued only `YYNNN`, such as `26015` or `26007`. Never `26-015`, `26/015` or `26_015`. Strip any separators before passing a number to the script.
+- **Old generator numbers: 5 digits, no separator.** The old generator issued only `YYNNN`, such as `26015` or `26007`; it never issued the suffixed form. Never split the sequence as `26-015`, `26/015` or `26_015`.
 - **Moneypenny numbers: `YYNNN-NNNNNN`.** The five-digit sequence, a hyphen, then exactly six digits for the revenue account: `26043-410210`. Preserve the account suffix.
 - **One yearly sequence across both forms.** The suffix does not create a separate series. The ledger's `number` column holds the sequence; its `drive_folders` column preserves the full folder names, including account suffixes.
 - **Moneypenny issues every new number.** Draft new invoices with `/invoice` or `/invoice-nipo` in the Business Development plugin, or ask Lina; Moneypenny numbers each one when its drafter approves it. `generate-invoice.py --next-number` refuses. Never pick a number by hand or by listing a folder.
@@ -67,11 +67,11 @@ The sync uploads through the Drive API on every platform. It never reads or writ
 
 ## Invoices made outside the generator
 
-An invoice written by hand, or drafted by Metis, still needs its number filed. On the day it is sent, run:
+An invoice written by hand still needs its number filed. On the day it is sent, run:
 
 `python3 scripts/generate-invoice.py --register --number NNNNN --client "Client Name" --date YYYY-MM-DD --file path/to/invoice.pdf [--file ...] [--nipo]`
 
-`--register` refuses a number already used locally or on Drive. Otherwise it creates the local folder, copies the files in and uploads them to the matching Drive folder. Add `--no-sync` to skip the upload.
+`--register` takes a five-digit number only: it refuses a suffixed Moneypenny number such as `26043-410210`, because Moneypenny files its own invoices. It also refuses a number already used locally or on Drive, a number a Lina draft holds or Moneypenny issued or cancelled (the generator's own invoices that Moneypenny imported excepted), and any number while Moneypenny cannot be read. Otherwise it creates the local folder, copies the files in and uploads them to the matching Drive folder. Add `--no-sync` to skip the upload.
 
 ## VAT (standard invoices)
 
