@@ -59,12 +59,6 @@ def drive(monkeypatch: pytest.MonkeyPatch) -> FakeDrive:
 
 
 @pytest.fixture
-def moneypenny() -> dict[int, int]:
-    """Moneypenny's back-office counter by four-digit year; a year not listed reads 0."""
-    return {}
-
-
-@pytest.fixture
 def moneypenny_reserved() -> dict[int, list[str]]:
     """The numbers Lina's open drafts hold in Moneypenny, by four-digit year; a year not listed holds none."""
     return {}
@@ -91,7 +85,6 @@ def moneypenny_pre_engine() -> dict[int, list[str]]:
 @pytest.fixture
 def moneypenny_report(
     monkeypatch: pytest.MonkeyPatch,
-    moneypenny: dict[int, int],
     moneypenny_reserved: dict[int, list[str]],
     moneypenny_cancelled: dict[int, list[str]],
     moneypenny_issued: dict[int, list[str]],
@@ -104,7 +97,7 @@ def moneypenny_report(
         numbers,
         "series",
         lambda year: {
-            "last_number": moneypenny.get(year, 0),
+            "last_number": 0,
             "reserved": moneypenny_reserved.get(year, []),
             "issued": moneypenny_issued.get(year, [])
             + moneypenny_cancelled.get(year, [])

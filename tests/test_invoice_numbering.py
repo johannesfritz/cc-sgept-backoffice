@@ -6,10 +6,12 @@ side only. Moneypenny now issues new numbers, so --next-number refuses
 (client-documents plan, cutover-checks).
 """
 import csv
+import http.client
 import io
 import json
 import subprocess
 import sys
+import urllib.error
 
 import pytest
 
@@ -240,6 +242,37 @@ def test_generator_invoice_imported_into_moneypenny_stays_free(generator, moneyp
     moneypenny_pre_engine[2026] = ["26033", "26015-410200"]
     assert generator.number_in_use("26033") is None
     assert generator.number_in_use("26015") is None
+
+
+@pytest.mark.parametrize(
+    "urlopen_effect, reason",
+    [(None, "must be set"),
+     (urllib.error.URLError("connection refused"), "Cannot read Moneypenny's invoice counter"),
+     (http.client.IncompleteRead(b"{"), "Cannot read Moneypenny's invoice counter"),
+     ({"series": "backoffice", "pre_engine": []}, "Cannot read Moneypenny's invoice counter")],
+    ids=["no_settings", "unreachable", "cut_off", "no_last_number"],
+)
+def test_number_in_use_refuses_when_the_series_report_cannot_be_read(drive, tmp_path, monkeypatch, urlopen_effect, reason):
+    """Missing settings, an unreachable service, a cut-off body or an incomplete report count the number as taken."""
+    gen = load_script("generate_invoice_unreadable", "generate-invoice.py")
+    monkeypatch.setattr(gen, "OUTPUT_DIR", tmp_path)
+    monkeypatch.delenv("MNP_API_TOKEN", raising=False)
+    if urlopen_effect is None:
+        monkeypatch.delenv("MNP_API_URL", raising=False)
+        monkeypatch.delenv("MNP_API_TOKEN_CEO", raising=False)
+    else:
+        monkeypatch.setenv("MNP_API_URL", "https://mnp.example.invalid")
+        monkeypatch.setenv("MNP_API_TOKEN_CEO", "fixture-token")
+
+    def urlopen(request, timeout):
+        if isinstance(urlopen_effect, Exception):
+            raise urlopen_effect
+        return io.BytesIO(json.dumps(urlopen_effect).encode())
+
+    monkeypatch.setattr("urllib.request.urlopen", urlopen)
+    found = gen.number_in_use("26048")
+    assert found is not None
+    assert "cannot be checked against Moneypenny's drafts" in found and reason in found
 
 
 def test_number_counts_as_in_use_when_moneypenny_cannot_be_read(generator, moneypenny_report, monkeypatch):

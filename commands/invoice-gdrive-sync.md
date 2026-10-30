@@ -10,7 +10,7 @@ The command:
 3. Uploads both files through the Drive API to the Drive folder as `SGEPT-invoice[NUMBER].docx` / `.pdf`
 4. Overwrites any existing `SGEPT-invoice[NUMBER].*` files in that folder — no version conflicts
 
-Note: the generator synced each invoice to Drive on first generation. This command is only for re-syncs of invoices it made.
+Note: the generator usually synced an invoice to Drive on first generation. This command is only for re-syncs of invoices it made.
 
 Before uploading, the sync reads Moneypenny. It refuses, uploading nothing, a number a Lina draft holds or Moneypenny issued or cancelled, and any number while Moneypenny cannot be read. It then raises `ValueError` with the reason. Stop and report that reason. Do not rename the folder or pick another number yourself.
 

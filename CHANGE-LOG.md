@@ -12,7 +12,7 @@ Moneypenny now issues every back-office invoice number. Version 0.2.0.
 - `knowledge/invoice-spec-schema.md`, `.audit-canonical-layout` and the refusal text follow suit; `_numbers_by_side` no longer returns the unused year.
 - JF-4429's Moneypenny checks stay: `number_in_use` and every Drive upload still refuse a number a Lina draft holds or Moneypenny issued or cancelled, so a re-sync or `--register` of an old number cannot take one of Moneypenny's.
 - JF-4340's review follow-ups: the `number_in_use` and `_numbers_by_side` docstrings speak of the sequence; the rule's `--register` section says a suffixed number is refused; `commands/invoice-gdrive-sync.md` says it re-syncs only the generator's five-digit invoices.
-- Tests: `tests/test_invoice_numbering.py` loses the tests of the removed functions, including JF-4340's next-number and report cases and JF-4429's three next-number cases. It gains one for the `--next-number` refusal and one for `--register` refusing a suffixed number. Main (JF-4429, JCC-9404) merged in for JF-4385.
+- Tests: `tests/test_invoice_numbering.py` loses the tests of the removed functions, including JF-4340's next-number and report cases and JF-4429's three next-number cases. It gains one for the `--next-number` refusal, one for `--register` refusing a suffixed number, and four that run the real series read through `number_in_use` (no settings, unreachable, cut off, no `last_number`), which JF-4429's next-number tests used to cover. The unused `moneypenny` counter fixture goes; `tests/test_sync_api.py`'s upload refusal test no longer names the removed handler. Main (JF-4429, JCC-9404) merged in for JF-4385.
 
 ## 2026-10-28: a standard invoice's amount stays on its description's line (JCC-9404)
 
