@@ -97,12 +97,12 @@ def _invoice_files(tmp_path: Path, number: str) -> Path:
     return docx
 
 
-def test_step_f_upload_refuses_a_number_a_lina_draft_holds(
+def test_upload_cli_refuses_a_number_a_lina_draft_holds(
     tmp_path, monkeypatch, capsys, moneypenny_report, moneypenny_reserved
 ):
-    """The handler's STEP F command uploads nothing and prints Refused when a draft took the number meanwhile."""
+    """The upload command line uploads nothing and prints Refused when a Lina draft holds the number."""
     moneypenny_reserved[2026] = ["26047-410210"]
-    gdrive = load_script("gdrive_upload_step_f", "gdrive_upload.py")
+    gdrive = load_script("gdrive_upload_cli", "gdrive_upload.py")
     monkeypatch.setattr(gdrive, "SERVICE_ACCOUNT_PATH", tmp_path)  # any existing path
     files = FakeFiles("unused")
     _install_fake_google(monkeypatch, files)

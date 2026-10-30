@@ -1,5 +1,19 @@
 # Change log
 
+## 2026-10-30: Retire the invoice number issuer and the back-office invoice commands (plan client-documents, stage cutover-checks, JF-4217)
+
+Moneypenny now issues every back-office invoice number. Version 0.2.0.
+
+- `scripts/generate-invoice.py`: `--next-number` exits 1 with a message naming `/invoice` and `/invoice-nipo` in the Business Development plugin, and Lina. `next_invoice_number()`, `invoice_number_report()` and `_print_number_report()` are removed with their tests. `--ledger` stays: the Monday check on Metis reads Drive through it. `--spec-file` and `--register` are unchanged.
+- `commands/invoice.md` and `commands/invoice-nipo.md` are removed. Their successors are the commands of the same names in the Business Development plugin.
+- `prompts/invoice-handler.md`, the Chief of Staff invoice path, is removed. Deploy jf-metis#100 first: it stops the inbox loading the handler and stops `invoice-nipo` spawning.
+- `rules/invoice-governance.md`, `README.md`, `install.sh` and `commands/invoice-gdrive-sync.md` describe the new path.
+- `rules/invoice-governance.md` keeps JF-4340's two number forms and their shared sequence.
+- `knowledge/invoice-spec-schema.md`, `.audit-canonical-layout` and the refusal text follow suit; `_numbers_by_side` no longer returns the unused year.
+- JF-4429's Moneypenny checks stay: `number_in_use` and every Drive upload still refuse a number a Lina draft holds or Moneypenny issued or cancelled, so a re-sync or `--register` of an old number cannot take one of Moneypenny's.
+- JF-4340's review follow-ups: the `number_in_use` and `_numbers_by_side` docstrings speak of the sequence; the rule's `--register` section says a suffixed number is refused; `commands/invoice-gdrive-sync.md` says it re-syncs only the generator's five-digit invoices.
+- Tests: `tests/test_invoice_numbering.py` loses the tests of the removed functions, including JF-4340's next-number and report cases and JF-4429's three next-number cases. It gains one for the `--next-number` refusal, one for `--register` refusing a suffixed number, and four that run the real series read through `number_in_use` (no settings, unreachable, cut off, no `last_number`), which JF-4429's next-number tests used to cover. The unused `moneypenny` counter fixture goes; `tests/test_sync_api.py`'s upload refusal test no longer names the removed handler. Main (JF-4429, JCC-9404) merged in for JF-4385.
+
 ## 2026-10-28: a standard invoice's amount stays on its description's line (JCC-9404)
 
 - Cause: a deliverable line reached the Amount column through six default tab stops, so a description longer than about 30 characters pushed the amount onto a second line. Found on 27 October drafting 26045, which was fixed by hand.

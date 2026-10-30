@@ -11,15 +11,15 @@ This repo is the **back-office automation engine** for SGEPT invoicing. Dependen
 - **(required)** SGEPT bank account config + NIPO Stripe link config (in `config/` directory)
 - **(optional companion)** cc-os: provides session-tracking, `/handoff`. Invoice flows work without cc-os.
 
-The repo IS structurally tied to the canonical jf-private layout: invoice folders land at `jf-ceo/sgept-backoffice/invoicing/YYMMDD [Descriptor] {NUMBER}/`, `generate-invoice.py --next-number` reads that path and the Drive invoicing folder, and the symlink targets in /jf-ceo/sgept-backoffice/ are the canonical work directory. Standalone consumers would need to provide an equivalent target tree.
+The repo IS structurally tied to the canonical jf-private layout: invoice folders land at `jf-ceo/sgept-backoffice/invoicing/YYMMDD [Descriptor] {NUMBER}/`, `generate-invoice.py --ledger` reads that path and the Drive invoicing folder, and the symlink targets in /jf-ceo/sgept-backoffice/ are the canonical work directory. Standalone consumers would need to provide an equivalent target tree.
 
 ## Contents
 
 | Dir | Purpose |
 |---|---|
 | `agents/` | Back-office agent definitions (future) |
-| `commands/` | Slash commands (`/invoice`, `/invoice-nipo`, `/invoice-gdrive-sync`) symlinked into `jf-ceo/.claude/commands/` |
-| `prompts/` | Prompt fragments consumed by the CoS inbox loop (`invoice-handler.md`) |
+| `commands/` | Slash commands (`/invoice-gdrive-sync`, `/collect-consultant-bills`) symlinked into `jf-ceo/.claude/commands/`. New invoices: `/invoice` and `/invoice-nipo` in the Business Development plugin, which Moneypenny numbers |
+| `prompts/` | Prompt fragments for scheduled routines (`invoice-routine-server.md`, `office-inbox-routine.md`) |
 | `scripts/` | `generate-invoice.py`, `pdf_convert.py`, `gdrive_upload.py`, cross-platform (macOS + Linux) |
 | `templates/invoices/` | SGEPT invoice `.docx` templates (NIPO regular/academic_library/academic_student, standard) |
 | `config/` | `bank-accounts.json`, `nipo-stripe-links.json` |
@@ -38,7 +38,7 @@ ln -s ../../../claude-setup/cc-sgept-backoffice/templates/invoices \
       jf-ceo/sgept-backoffice/templates/invoices
 ln -s ../../../../claude-setup/cc-sgept-backoffice/config \
       jf-ceo/sgept-backoffice/invoicing/config
-for f in invoice invoice-nipo invoice-gdrive-sync; do
+for f in invoice-gdrive-sync collect-consultant-bills; do
   ln -s ../../../claude-setup/cc-sgept-backoffice/commands/${f}.md \
         jf-ceo/.claude/commands/${f}.md
 done

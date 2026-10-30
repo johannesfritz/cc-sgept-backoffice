@@ -10,7 +10,7 @@ The command:
 3. Uploads both files through the Drive API to the Drive folder as `SGEPT-invoice[NUMBER].docx` / `.pdf`
 4. Overwrites any existing `SGEPT-invoice[NUMBER].*` files in that folder — no version conflicts
 
-Note: `/invoice` and `/invoice-nipo` already sync to Drive automatically on first generation. This command is only for re-syncs.
+Note: the generator usually synced an invoice to Drive on first generation. This command is only for re-syncs of invoices it made.
 
 Before uploading, the sync reads Moneypenny. It refuses, uploading nothing, a number a Lina draft holds or Moneypenny issued or cancelled, and any number while Moneypenny cannot be read. It then raises `ValueError` with the reason. Stop and report that reason. Do not rename the folder or pick another number yourself.
 
@@ -18,7 +18,7 @@ Before uploading, the sync reads Moneypenny. It refuses, uploading nothing, a nu
 
 Collect via AskUserQuestion:
 
-1. **Invoice Number** — 5 digits (e.g., `26007`)
+1. **Invoice Number** — the five-digit number of an invoice the generator made (e.g., `26007`). Moneypenny files its own `YYNNN-NNNNNN` invoices, such as `26043-410210`; do not re-sync them here.
 2. **Abbreviation** — only needed if no Drive folder ending in ` [NUMBER]` already exists (a new folder will be created named `YYMMDD [NIPO ][ABBREV] [NUMBER]`). If the folder exists, the script reuses it and abbrev can be a placeholder.
 3. **Is NIPO?** — only matters if a new folder will be created (to prefix `NIPO` into the folder name)
 

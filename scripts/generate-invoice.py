@@ -32,6 +32,12 @@ OUTPUT_DIR = JF_PRIVATE_ROOT / "jf-ceo" / "sgept-backoffice" / "invoicing"
 # gdrive_upload.py: https://drive.google.com/drive/u/0/folders/19bPRghIb2L3cdxZzIattO65uM5En6dHM
 GDRIVE_FOLDER_ID = "19bPRghIb2L3cdxZzIattO65uM5En6dHM"
 
+# Moneypenny is the only issuer of invoice numbers (client-documents plan, cutover-checks).
+NEXT_NUMBER_RETIRED = (
+    "Refused: Moneypenny issues invoice numbers. Draft the invoice with /invoice or /invoice-nipo "
+    "in the Business Development plugin, or ask Lina in Slack or by email (lina.marti@sgept.org).\n"
+)
+
 # Template files
 TEMPLATE_STANDARD = TEMPLATES_DIR / "SGEPT - Invoice standard.docx"
 TEMPLATE_NIPO_REGULAR = TEMPLATES_DIR / "SGEPT - Invoice NIPO regular.docx"
@@ -779,10 +785,10 @@ def _number_of(folder_name: str) -> str | None:
     return match.group(1) if match else None
 
 
-def _numbers_by_side(year: int | None) -> tuple[dict[str, list[str]], dict[str, list[str]], str]:
-    """Group folder names by invoice number on the local and Drive side for one year.
+def _numbers_by_side(year: int | None) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    """Group folder names by five-digit sequence on the local and Drive side for one year.
 
-    Returns (local, drive, yy) where local and drive map number -> folder names.
+    Returns (local, drive), each mapping number -> folder names.
     """
     yy = f"{(datetime.now().year if year is None else year) % 100:02d}"
     sys.path.insert(0, str(SCRIPT_PATH.parent))
@@ -797,36 +803,23 @@ def _numbers_by_side(year: int | None) -> tuple[dict[str, list[str]], dict[str, 
             if number is not None and number.startswith(yy):
                 grouped.setdefault(number, []).append(name)
         sides.append(grouped)
-    return sides[0], sides[1], yy
-
-
-def next_invoice_number(year: int | None = None) -> str:
-    """Return the next free invoice number for a year (two-digit YY, default current year).
-
-    It is one above the highest of the year's numbers in the local invoicing
-    folder, the Drive invoicing folder and Moneypenny's counter, which also
-    covers numbers Lina's drafts hold; "YY001" when the year has none.
-    Until the generator is retired (JF-4217), this keeps it from taking a
-    number Moneypenny has given out.
-    """
-    local, drive, yy = _numbers_by_side(year)
-    highest = max({int(n) for n in (*local, *drive)} | {moneypenny_numbers.series(2000 + int(yy))["last_number"]})
-    return str(highest + 1) if highest > int(yy) * 1000 else f"{yy}001"
+    return sides[0], sides[1]
 
 
 def number_in_use(number: str, target_folder: str | None = None) -> str | None:
     """Return a one-line reason when an invoice number is taken, None when it is free.
 
-    A number is taken when a local folder other than target_folder ends with it,
-    when a Drive folder ends with it and no local folder does (an invoice made
-    elsewhere), or when Moneypenny holds it for a Lina draft, keeps it as a
-    cancelled draft's void number or issued it. The local folder
-    named target_folder never counts, so the same invoice can be regenerated.
+    A number is taken when a local folder other than target_folder carries it
+    as its sequence, with or without a six-digit account suffix, when a Drive
+    folder carries it and no local folder does (an invoice made elsewhere), or
+    when Moneypenny holds it for a Lina draft, keeps it as a cancelled draft's
+    void number or issued it. The local folder named target_folder never
+    counts, so the same invoice can be regenerated.
     When Moneypenny cannot be read, the number counts as taken.
     """
     if not re.fullmatch(r'\d{5}', number):
         raise ValueError(f"Invoice number must be five digits, got {number!r}")
-    local, drive, _ = _numbers_by_side(2000 + int(number[:2]))
+    local, drive = _numbers_by_side(2000 + int(number[:2]))
     others = [name for name in local.get(number, []) if name != target_folder]
     if others:
         return f"Invoice number {number} is already used by local folder '{others[0]}'"
@@ -868,26 +861,6 @@ def register_invoice(
     return folder
 
 
-def invoice_number_report(year: int | None = None) -> dict:
-    """Report where the invoice numbers of a year disagree between local and Drive.
-
-    Returns {"drive_only": sorted numbers on Drive only, "local_only": sorted
-    numbers locally only, "duplicates": number -> folder names, for numbers
-    used by more than one folder on the same side}.
-    """
-    local, drive, _ = _numbers_by_side(year)
-    duplicates: dict[str, list[str]] = {}
-    for side in (local, drive):
-        for number, names in side.items():
-            if len(names) > 1:
-                duplicates.setdefault(number, []).extend(names)
-    return {
-        "drive_only": sorted(set(drive) - set(local)),
-        "local_only": sorted(set(local) - set(drive)),
-        "duplicates": duplicates,
-    }
-
-
 def invoice_ledger(year: int | None = None) -> list[dict]:
     """List every invoice number of a year with its Drive and local status.
 
@@ -896,7 +869,7 @@ def invoice_ledger(year: int | None = None) -> list[dict]:
     when either side has more than one folder for the number, otherwise "both",
     "drive_only" or "local_only".
     """
-    local, drive, _ = _numbers_by_side(year)
+    local, drive = _numbers_by_side(year)
     rows = []
     for number in sorted(set(local) | set(drive)):
         local_folders, drive_folders = local.get(number, []), drive.get(number, [])
@@ -921,14 +894,6 @@ def write_ledger_csv(rows: list[dict], out: Path) -> None:
                              " | ".join(row["local_folders"]), " | ".join(row["drive_folders"])])
 
 
-def _print_number_report(report: dict) -> None:
-    """Write the findings of invoice_number_report to stderr."""
-    print(f"Drive only (no local copy): {', '.join(report['drive_only']) or 'none'}", file=sys.stderr)
-    print(f"Local only (not on Drive): {', '.join(report['local_only']) or 'none'}", file=sys.stderr)
-    for number, names in sorted(report['duplicates'].items()):
-        print(f"Duplicate {number}: used by {len(names)} folders: {'; '.join(names)}", file=sys.stderr)
-
-
 def _cli():
     import argparse
     ap = argparse.ArgumentParser(description="SGEPT Invoice Generator")
@@ -937,11 +902,9 @@ def _cli():
     ap.add_argument('--no-sync', action='store_true',
                     help="Skip Drive upload (overrides spec.sync).")
     ap.add_argument('--next-number', action='store_true',
-                    help="Print the next free invoice number (max of Drive, local and Moneypenny's "
-                         "counter, plus 1); "
-                         "report one-sided and duplicate numbers on stderr.")
+                    help="Retired: Moneypenny issues invoice numbers. Exits 1 and names the plugin commands.")
     ap.add_argument('--year', type=int, metavar='YY',
-                    help="Two-digit year for --next-number and --ledger (default: current year).")
+                    help="Two-digit year for --ledger (default: current year).")
     ap.add_argument('--ledger', action='store_true',
                     help="Write a CSV of every invoice number of the year with its Drive and "
                          "local status (needs --out).")
@@ -977,12 +940,7 @@ def _cli():
         return
 
     if args.next_number:
-        _print_number_report(invoice_number_report(args.year))
-        try:
-            print(next_invoice_number(args.year))
-        except RuntimeError as err:
-            ap.exit(1, f"Refused: {err}\n")
-        return
+        ap.exit(1, NEXT_NUMBER_RETIRED)
 
     if args.spec_file:
         with open(args.spec_file) as f:
