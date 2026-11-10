@@ -56,7 +56,7 @@ Gmail helper — these already exist:
   Spec fields: `to`, `cc`, `subject`, `body`, `html`, `thread_id`,
   `in_reply_to`, `references`, `attachments` (array of absolute paths).
 - File reads + edits (Read, Glob, Grep, Write, Edit); `git/jq/cat/wc/head/tail/ls/mkdir/cp/python3`.
-- Slack MCP: `mcp__slack__slack_send_message` (escalation only).
+- No Slack tool and no copy to the CEO: the day-14 escalation is a file (section G).
 
 ---
 
@@ -213,7 +213,6 @@ D.4 Write the send spec to `/dev/shm/peterhans-send.json`:
 ```json
 {
   "to": "corinne.peterhans@kropftreuhand.ch",
-  "cc": "johannes.fritz@sgept.org",
   "subject": "Consultant Rechnungen {{MONTH_GERMAN}}",
   "body": "<the HTML body above>",
   "html": true,
@@ -235,8 +234,8 @@ Capture the message ID from STDOUT.
 D.6 Write the sentinel:
 ```bash
 DAY=$(TZ=Europe/Zurich date +%d)
-printf 'Main forward sent %s\nMessage-ID: %s\nRecipients: corinne.peterhans@kropftreuhand.ch (cc: johannes.fritz@sgept.org)\nAttachments: %d invoices\n' \
-  "$(TZ=Europe/Zurich date +%Y-%m-%dT%H:%M:%S%z)" "$MSGID" "$NATTACH" \
+printf 'Main forward sent %s\nMessage-ID: %s\nRecipients: %s\nAttachments: %d invoices\n' \
+  "$(TZ=Europe/Zurich date +%Y-%m-%dT%H:%M:%S%z)" "$MSGID" "$(jq -r .to /dev/shm/peterhans-send.json)" "$NATTACH" \
   > "$MONTH_DIR/forwarded-on-$DAY.txt"
 ```
 
@@ -278,8 +277,8 @@ sind eingegangen und sind beigefügt:</p>
 ```
 
 E.5 Send via `gmail-office-send-stamped.sh` with the new PDFs as `attachments`,
-`thread_id` of the original forward (if you can retrieve it), and
-`cc: johannes.fritz@sgept.org`.
+and the `thread_id` of the original forward (if you can retrieve it). No
+`cc`: the forward goes to the fiduciary alone.
 
 E.6 Write `$MONTH_DIR/supplementary-on-$DAY.txt` with the same shape as
 the main sentinel.
@@ -328,26 +327,15 @@ from PROTOCOL.md §12 via `gmail-office-send-stamped.sh` (same shape as
 section F but using the escalation body). Never include a consultant whose §1
 Notes begin with `NO-CHASE` (checklist Status `n/c`).
 
-G.4 Compose a Slack DM to the CEO summarising the still-missing list and
-the actions taken. Send via:
-
-```
-mcp__slack__slack_send_message(
-  channel="<johannes user id>",  # if known; otherwise the CEO DM channel
-  text="[Metis CoS] {{MONTH_ENGLISH}} invoices: still missing after escalation:\n\n• Consultant A (last reminder 2026-MM-14)\n• Consultant B\n\nChecklist: …/checklist.md"
-)
-```
-
-If the johannes user ID is not in scope, fall back to posting in a
-pre-agreed channel (e.g. `#metis-cos-alerts`) — capture the channel from
-context. If neither is available, record an `errors` entry and continue
-(the CEO will see the failure in the cron log).
+G.4 Send no Slack message and no email to the CEO. The record of the
+escalation is `escalation-sent.txt` (G.5) and the checklist; the finance team
+reads them in the month folder.
 
 G.5 Write `$MONTH_DIR/escalation-sent.txt`:
 ```
 Escalation sent 2026-MM-14T10:00+02:00
 Missing consultants: <list>
-Slack message: <ts or "FAILED">
+Second reminders sent to: <list of consultant emails>
 ```
 
 G.6 Record under `escalation_sent` in RESULT.
